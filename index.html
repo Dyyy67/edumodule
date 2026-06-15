@@ -355,20 +355,18 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
               <div class="gen-panel-header"><span class="ph-icon">📝</span> Module Details</div>
               <div class="gen-body">
                 <div class="field-row">
-                  <div class="field-group"><label>Grade Level</label>
-                    <select id="gradeLevel">
-                      <option value="1">Grade 1</option><option value="2">Grade 2</option>
-                      <option value="3">Grade 3</option><option value="4" selected>Grade 4</option>
-                      <option value="5">Grade 5</option><option value="6">Grade 6</option>
-                    </select>
-                  </div>
                   <div class="field-group"><label>Subject</label>
-                    <select id="subject">
-                      <option>Math</option><option>Science</option><option>English</option>
-                      <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
-                      <option>ESP</option><option>Computer</option><option>Other</option>
-                    </select>
-                  </div>
+  <div style="display:flex;gap:6px;margin-bottom:6px">
+    <input type="text" id="newSubjectInput" placeholder="Add subject..." style="flex:1;padding:8px 12px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:13px;outline:none">
+    <button class="btn btn-success btn-sm" onclick="addSubject()">+ Add</button>
+    <button class="btn btn-danger btn-sm" onclick="removeSubject()">− Remove</button>
+  </div>
+  <select id="subject">
+    <option>Math</option><option>Science</option><option>English</option>
+    <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
+    <option>ESP</option><option>Computer</option><option>Other</option>
+  </select>
+</div>
                 </div>
                 <div class="field-row">
                   <div class="field-group"><label>Module Title</label><input type="text" id="moduleTitle" placeholder="e.g. Addition of Fractions"></div>
@@ -1270,6 +1268,25 @@ function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show ' + type;
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+function addSubject() {
+  const input = document.getElementById('newSubjectInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const sel = document.getElementById('subject');
+  const opt = document.createElement('option');
+  opt.value = val; opt.textContent = val;
+  sel.appendChild(opt);
+  sel.value = val;
+  input.value = '';
+  showToast('✅ Subject added!', 'success');
+}
+
+function removeSubject() {
+  const sel = document.getElementById('subject');
+  if (sel.options.length <= 1) { showToast('Cannot remove last subject!', 'error'); return; }
+  sel.remove(sel.selectedIndex);
+  showToast('🗑️ Subject removed!', 'success');
 }
 
 // ==================== INIT ====================
