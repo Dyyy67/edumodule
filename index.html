@@ -356,11 +356,13 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
               <div class="gen-body">
                 <div class="field-row">
                   <div class="field-group"><label>Subject</label>
-  <div style="display:flex;gap:6px;margin-bottom:6px">
-    <input type="text" id="newSubjectInput" placeholder="Add subject..." style="flex:1;padding:8px 12px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:13px;outline:none">
-    <button class="btn btn-success btn-sm" onclick="addSubject()">+ Add</button>
-    <button class="btn btn-danger btn-sm" onclick="removeSubject()">− Remove</button>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
+  <input type="text" id="newSubjectInput" placeholder="Type new subject here..." style="width:100%;padding:10px 14px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:14px;outline:none">
+  <div style="display:flex;gap:6px">
+    <button class="btn btn-success btn-sm" onclick="addSubject()" style="flex:1">+ Add</button>
+    <button class="btn btn-danger btn-sm" onclick="removeSubject()" style="flex:1">− Remove</button>
   </div>
+</div>
   <select id="subject">
     <option>Math</option><option>Science</option><option>English</option>
     <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
