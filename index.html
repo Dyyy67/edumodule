@@ -355,19 +355,30 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
               <div class="gen-panel-header"><span class="ph-icon">📝</span> Module Details</div>
               <div class="gen-body">
                 <div class="field-row">
-                  <div class="field-group"><label>Subject</label>
-  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
-  <input type="text" id="newSubjectInput" placeholder="Type new subject here..." style="width:100%;padding:10px 14px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:14px;outline:none">
-  <div style="display:flex;gap:6px">
-    <button class="btn btn-success btn-sm" onclick="addSubject()" style="flex:1">+ Add</button>
-    <button class="btn btn-danger btn-sm" onclick="removeSubject()" style="flex:1">− Remove</button>
+  <div class="field-group"><label>Grade Level</label>
+    <select id="gradeLevel">
+      <option value="1">Grade 1</option>
+      <option value="2">Grade 2</option>
+      <option value="3">Grade 3</option>
+      <option value="4" selected>Grade 4</option>
+      <option value="5">Grade 5</option>
+      <option value="6">Grade 6</option>
+    </select>
   </div>
-</div>
-  <select id="subject">
-    <option>Math</option><option>Science</option><option>English</option>
-    <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
-    <option>ESP</option><option>Computer</option><option>Other</option>
-  </select>
+  <div class="field-group"><label>Subject</label>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
+      <input type="text" id="newSubjectInput" placeholder="Type new subject here..." style="width:100%;padding:10px 14px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:14px;outline:none">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-success btn-sm" onclick="addSubject()" style="flex:1">+ Add</button>
+        <button class="btn btn-danger btn-sm" onclick="removeSubject()" style="flex:1">− Remove</button>
+      </div>
+    </div>
+    <select id="subject">
+      <option>Math</option><option>Science</option><option>English</option>
+      <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
+      <option>ESP</option><option>Computer</option><option>Other</option>
+    </select>
+  </div>
 </div>
                 </div>
                 <div class="field-row">
