@@ -875,7 +875,7 @@ async function callGemini(prompt, apiKey) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 4000 } })
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 2048, maxInputTokens: 2048 } })
   });
   if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'Gemini API error'); }
   const data = await res.json();
@@ -891,6 +891,8 @@ function buildGeminiPrompt(sourceText, formData) {
     5: 'more complex vocabulary, detailed explanations, analytical thinking',
     6: 'advanced vocabulary, comprehensive content, critical thinking skills'
   };
+  sourceText = sourceText.slice(0, 3000);
+  if (sourceText.length > 3000) sourceText = sourceText.slice(0, 3000);
   return `You are an expert Filipino elementary school curriculum writer creating a learning module for Grade ${formData.grade} students.
 Use: ${gradeDescriptions[formData.grade]}
 
