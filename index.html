@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduModule Generator</title>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- docx.js (UMD build that exposes window.docx) -->
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<!-- Tesseract OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<!-- PDF.js (classic build that exposes pdfjsLib global) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- mammoth.js for docx reading -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#6C63FF;--secondary:#FF6B9D;--accent:#FFD93D;--green:#6BCB77;--orange:#FF9F43;
+  --bg:#F0F4FF;--sidebar:#1E1B4B;--card:#fff;--text:#2D2D2D;--muted:#8892A4;
+  --radius:16px;--shadow:0 4px 24px rgba(108,99,255,.13);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}
+
+/* AUTH */
+#authScreen{position:fixed;inset:0;background:linear-gradient(135deg,#6C63FF 0%,#FF6B9D 50%,#FFD93D 100%);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column}
+.auth-box{background:#fff;border-radius:24px;padding:40px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.auth-logo{text-align:center;margin-bottom:24px}
+.auth-logo .logo-icon{font-size:52px;display:block}
+.auth-logo h1{font-family:'Fredoka One',sans-serif;font-size:28px;color:var(--primary);margin-top:8px}
+.auth-logo p{color:var(--muted);font-size:13px;margin-top:4px}
+.auth-tabs{display:flex;border:2px solid #eee;border-radius:12px;margin-bottom:24px;overflow:hidden}
+.auth-tab{flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);background:#fff;border:none;transition:.2s}
+.auth-tab.active{background:var(--primary);color:#fff}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px}
+.form-group input{width:100%;padding:12px 16px;border:2px solid #eee;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;outline:none;transition:.2s}
+.form-group input:focus{border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;cursor:pointer;border:none;transition:.2s;text-decoration:none}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff;width:100%}
+.btn-primary:hover:not(:disabled){background:#5a52e0;transform:translateY(-1px)}
+.btn-google{background:#fff;border:2px solid #eee;color:var(--text);width:100%;margin-top:12px}
+.btn-google:hover{border-color:var(--primary)}
+.divider{text-align:center;color:var(--muted);font-size:12px;margin:16px 0;position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#eee}
+.divider::before{left:0}.divider::after{right:0}
+.auth-error{background:#FFE8E8;color:#c0392b;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none}
+.demo-hint{margin-top:14px;text-align:center;font-size:12px;color:var(--muted)}
+.demo-hint button{background:none;border:none;color:var(--primary);font-weight:800;cursor:pointer;text-decoration:underline;font-family:inherit;font-size:12px}
+
+/* SIDEBAR */
+.sidebar{width:240px;background:var(--sidebar);color:#fff;display:flex;flex-direction:column;padding:0;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-logo h2{font-family:'Fredoka One',sans-serif;font-size:20px;color:#fff}
+.sidebar-logo p{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}
+.sidebar-logo .logo-emoji{font-size:28px;display:block;margin-bottom:8px}
+.nav-section{padding:16px 12px 8px;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.35);font-weight:800}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 16px;margin:2px 8px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:rgba(255,255,255,.7);transition:.2s}
+.nav-item:hover,.nav-item.active{background:rgba(255,255,255,.12);color:#fff}
+.nav-item.active{background:var(--primary)}
+.nav-item .nav-icon{font-size:18px;width:22px;text-align:center}
+.sidebar-user{margin-top:auto;padding:16px;border-top:1px solid rgba(255,255,255,.1)}
+.user-info{display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+.user-name{font-size:12px;font-weight:700;color:#fff}
+.user-email{font-size:10px;color:rgba(255,255,255,.5)}
+.btn-logout{margin-top:10px;width:100%;padding:8px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.6);border-radius:10px;cursor:pointer;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700}
+.btn-logout:hover{background:rgba(255,100,100,.2);color:#ff8888}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #eef0f6;gap:16px}
+.topbar h1{font-family:'Fredoka One',sans-serif;font-size:22px;color:var(--primary);flex:1}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.badge{background:var(--accent);color:#333;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* PANELS */
+.panel{display:none}
+.panel.active{display:block}
+
+/* DASHBOARD */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat-card::after{content:attr(data-emoji);position:absolute;right:12px;top:8px;font-size:36px;opacity:.15}
+.stat-val{font-family:'Fredoka One',sans-serif;font-size:32px;color:var(--primary)}
+.stat-label{font-size:12px;color:var(--muted);font-weight:700;margin-top:2px}
+.quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.qa-card{background:#fff;border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;text-align:center;border:2px solid transparent}
+.qa-card:hover{border-color:var(--primary);transform:translateY(-3px)}
+.qa-card .qa-icon{font-size:40px;margin-bottom:10px;display:block}
+.qa-card h3{font-size:14px;font-weight:800;color:var(--text)}
+.qa-card p{font-size:12px;color:var(--muted);margin-top:4px}
+.history-list{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.history-header{padding:16px 20px;border-bottom:2px solid #eef0f6;display:flex;align-items:center;justify-content:space-between}
+.history-header h3{font-weight:800;font-size:15px}
+
+/* GENERATOR */
+.gen-layout{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+.gen-panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.gen-panel-header{padding:16px 20px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #eef0f6}
+.gen-panel-header .ph-icon{font-size:20px}
+.gen-body{padding:20px}
+.field-group{margin-bottom:16px}
+.field-group label{display:block;font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.field-group input,.field-group select,.field-group textarea{width:100%;padding:11px 14px;border:2px solid #eef0f6;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;outline:none;transition:.2s;color:var(--text)}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus{border-color:var(--primary)}
+.field-group textarea{resize:vertical;min-height:80px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.api-row{display:flex;gap:8px;align-items:flex-end}
+.api-row input{flex:1}
+.btn-sm{padding:10px 14px;border-radius:10px;font-size:12px}
+.btn-secondary{background:#eef0f6;color:var(--text)}
+.btn-secondary:hover{background:#e0e3f0}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#5ab866}
+.btn-danger{background:#FF6B9D;color:#fff}
+.btn-warning{background:var(--orange);color:#fff}
+.btn-accent{background:var(--accent);color:#333}
+
+/* DROP ZONE */
+.dropzone{border:3px dashed #c5cae9;border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;transition:.2s;background:#fafbff}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--primary);background:#f0f0ff}
+.dropzone .dz-icon{font-size:44px;display:block;margin-bottom:10px}
+.dropzone h4{font-weight:800;font-size:14px;color:var(--text)}
+.dropzone p{font-size:12px;color:var(--muted);margin-top:4px}
+.file-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.file-chip{display:flex;align-items:center;gap:6px;background:#eef0ff;color:var(--primary);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.file-chip button{background:none;border:none;cursor:pointer;color:var(--secondary);font-size:14px;line-height:1;padding:0 2px}
+
+/* BORDER PICKER */
+.border-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.border-opt{border-radius:10px;height:52px;cursor:pointer;border:3px solid transparent;transition:.2s;position:relative;overflow:hidden}
+.border-opt.selected{border-color:var(--primary)}
+.border-opt:hover{transform:scale(1.05)}
+
+/* PROGRESS */
+.progress-bar{background:#eef0f6;border-radius:20px;height:10px;overflow:hidden;margin:12px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:20px;transition:.4s;width:0%}
+.step-indicators{display:flex;gap:8px;margin-bottom:20px}
+.step-dot{flex:1;height:6px;border-radius:3px;background:#eef0f6;transition:.3s}
+.step-dot.done{background:var(--green)}
+.step-dot.active{background:var(--primary);animation:pulse 1.2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* PREVIEW */
+.preview-area{background:#f8f9ff;border-radius:var(--radius);padding:20px;min-height:500px;border:2px solid #eef0f6;position:relative}
+.module-preview{background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 16px rgba(0,0,0,.08);position:relative;font-family:'Nunito',sans-serif;min-height:400px}
+.cover-page{text-align:center;padding:40px 20px;min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.cover-school{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:16px}
+.cover-title{font-family:'Fredoka One',sans-serif;font-size:32px;color:var(--primary);line-height:1.2;margin-bottom:12px}
+.cover-subject{font-size:16px;font-weight:800;color:var(--secondary);margin-bottom:24px}
+.cover-img{width:140px;height:140px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:64px;margin:0 auto 24px;color:#fff}
+.cover-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:320px;margin-top:16px}
+.cover-detail{background:#f8f9ff;border-radius:10px;padding:10px 14px;text-align:left}
+.cover-detail .cd-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800}
+.cover-detail .cd-val{font-size:13px;font-weight:800;color:var(--text);margin-top:2px}
+.lesson-section{margin-top:24px}
+.lesson-section h2{font-family:'Fredoka One',sans-serif;font-size:20px;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid var(--accent)}
+.lesson-section p{font-size:13px;line-height:1.7;color:var(--text);margin-bottom:10px}
+.activity-table{width:100%;border-collapse:collapse;margin:12px 0;border-radius:10px;overflow:hidden}
+.activity-table th{background:var(--primary);color:#fff;padding:10px 14px;text-align:left;font-size:12px;font-weight:800}
+.activity-table td{padding:9px 14px;font-size:12px;border-bottom:1px solid #eef0f6}
+.activity-table tr:nth-child(even) td{background:#f8f9ff}
+.summary-box{background:linear-gradient(135deg,#fff7e6,#fff0f5);border-radius:14px;padding:20px;margin-top:20px;border-left:5px solid var(--orange)}
+.summary-box h3{font-family:'Fredoka One',sans-serif;font-size:18px;color:var(--orange);margin-bottom:10px}
+.summary-box ul{padding-left:20px}
+.summary-box li{font-size:13px;line-height:1.8;color:var(--text)}
+
+/* GENERATING OVERLAY */
+.gen-overlay{position:absolute;inset:0;background:rgba(255,255,255,.96);display:none;align-items:center;justify-content:center;flex-direction:column;border-radius:var(--radius);z-index:10;padding:20px}
+.gen-overlay.show{display:flex}
+.gen-spinner{font-size:56px;animation:bounce 1s ease infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+.gen-status{font-weight:800;font-size:16px;color:var(--primary);margin-top:16px;text-align:center}
+.gen-step-text{font-size:13px;color:var(--muted);margin-top:6px;text-align:center;max-width:340px}
+
+/* SETTINGS */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.settings-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.settings-card .sc-header{padding:16px 20px;border-bottom:2px solid #eef0f6;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
+.settings-card .sc-body{padding:20px}
+.api-key-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8f9ff;border-radius:10px;margin-bottom:8px}
+.api-key-item .ak-name{font-weight:800;font-size:13px;flex:1}
+.api-key-item .ak-val{font-size:11px;color:var(--muted);font-family:monospace}
+.api-key-item .ak-actions{display:flex;gap:4px}
+.btn-icon{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px;transition:.1s}
+.btn-icon:hover{background:#eee}
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;transform:translateY(80px);transition:.3s;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:340px}
+.toast.show{transform:translateY(0)}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--secondary)}
+
+/* HISTORY PANEL */
+.history-panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+.hp-item{padding:16px 20px;border-bottom:1px solid #f0f0f8;cursor:pointer;transition:.2s}
+.hp-item:hover{background:#f8f9ff}
+.hp-item-title{font-weight:800;font-size:14px}
+.hp-item-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.hp-item-tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.hp-tag{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#eef0ff;color:var(--primary)}
+
+@media(max-width:900px){
+  .gen-layout{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .settings-grid{grid-template-columns:1fr}
+}
+
+.hidden{display:none!important}
+.text-center{text-align:center}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}
+.flex{display:flex}.gap-8{gap:8px}.gap-12{gap:12px}.items-center{align-items:center}
+.w-full{width:100%}
+.empty-state{text-align:center;padding:40px;color:var(--muted)}
+.empty-state .es-icon{font-size:52px;display:block;margin-bottom:12px}
+.empty-state h3{font-weight:800;font-size:16px;color:var(--text)}
+.empty-state p{font-size:13px;margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="logo-icon">🎓</span>
+      <h1>EduModule AI</h1>
+      <p>Educational Module Generator for Grades 1–6</p>
+    </div>
+    <div id="authError" class="auth-error"></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuth('login')">Login</button>
+      <button class="auth-tab" onclick="switchAuth('register')">Register</button>
+    </div>
+    <div id="loginForm">
+      <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="teacher@school.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••"></div>
+      <button class="btn btn-primary" onclick="doLogin()">🚀 Sign In</button>
+      <div class="divider">or</div>
+      <button class="btn btn-google" onclick="doGoogleLogin()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google</button>
+    </div>
+    <div id="registerForm" class="hidden">
+      <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="Mrs. Santos"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="regEmail" placeholder="teacher@school.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="regPass" placeholder="Min 6 characters"></div>
+      <button class="btn btn-primary" onclick="doRegister()">✨ Create Account</button>
+    </div>
+    <div class="demo-hint">No account? <button onclick="enterDemoMode()">Continue as guest (saves locally)</button></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="mainApp" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-emoji">🎓</span>
+      <h2>EduModule AI</h2>
+      <p>Grades 1–6 Generator</p>
+    </div>
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')"><span class="nav-icon">🏠</span> Dashboard</div>
+    <div class="nav-item" data-panel="generator" onclick="showPanel('generator')"><span class="nav-icon">✨</span> Generate Module</div>
+    <div class="nav-item" data-panel="history" onclick="showPanel('history')"><span class="nav-icon">📚</span> My Modules</div>
+    <div class="nav-item" data-panel="summary" onclick="showPanel('summary')"><span class="nav-icon">📝</span> Generate Lesson Summary</div>
+    <div class="nav-item" data-panel="summaryHistory" onclick="showPanel('summaryHistory')"><span class="nav-icon">📒</span> My Lesson Summaries</div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" data-panel="settings" onclick="showPanel('settings')"><span class="nav-icon">⚙️</span> Settings &amp; API Keys</div>
+    <div class="nav-item" data-panel="help" onclick="showPanel('help')"><span class="nav-icon">❓</span> Help</div>
+    <div class="sidebar-user">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">T</div>
+        <div>
+          <div class="user-name" id="sidebarName">Teacher</div>
+          <div class="user-email" id="sidebarEmail">Loading...</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="topbarTitle">🏠 Dashboard</h1>
+      <div class="topbar-actions">
+        <span class="badge" id="topbarBadge">Gemini AI Ready</span>
+        <button class="btn btn-primary btn-sm" style="width:auto" onclick="showPanel('generator')">+ New Module</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="stats-row">
+          <div class="stat-card" data-emoji="📄"><div class="stat-val" id="statModules">0</div><div class="stat-label">Modules Generated</div></div>
+          <div class="stat-card" data-emoji="🔑"><div class="stat-val" id="statKeys">0</div><div class="stat-label">Saved API Keys</div></div>
+          <div class="stat-card" data-emoji="📅"><div class="stat-val" id="statToday">0</div><div class="stat-label">Generated Today</div></div>
+          <div class="stat-card" data-emoji="⭐"><div class="stat-val">6</div><div class="stat-label">Grade Levels</div></div>
+        </div>
+        <div class="quick-actions">
+          <div class="qa-card" onclick="showPanel('generator')"><span class="qa-icon">✨</span><h3>Generate New Module</h3><p>Upload content &amp; create AI module</p></div>
+          <div class="qa-card" onclick="showPanel('history')"><span class="qa-icon">📚</span><h3>View My Modules</h3><p>Browse saved modules</p></div>
+          <div class="qa-card" onclick="showPanel('settings')"><span class="qa-icon">🔑</span><h3>Manage API Keys</h3><p>Add or edit your Gemini keys</p></div>
+        </div>
+        <div class="history-list">
+          <div class="history-header"><h3>📋 Recent Modules</h3><button class="btn btn-secondary btn-sm" style="width:auto" onclick="showPanel('history')">View All</button></div>
+          <div id="recentList"><div class="empty-state"><span class="es-icon">🌟</span><h3>No modules yet!</h3><p>Click "Generate New Module" to get started.</p></div></div>
+        </div>
+      </div>
+
+      <!-- GENERATOR -->
+      <div class="panel" id="panel-generator">
+        <div class="gen-layout">
+          <div>
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🔑</span> Gemini AI Settings</div>
+              <div class="gen-body">
+                <div class="field-group">
+                  <label>Active API Key</label>
+                  <select id="apiKeySelect" onchange="onApiKeySelect()">
+                    <option value="">— Select saved key —</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label>API Key Value</label>
+                  <div class="api-row">
+                    <input type="password" id="apiKeyInput" placeholder="AIza..." oninput="updateDashboardStats()">
+                    <button class="btn btn-success btn-sm" onclick="saveApiKey()">Save</button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label>Key Nickname</label>
+                  <input type="text" id="apiKeyName" placeholder="e.g. My Gemini Key">
+                </div>
+                <div class="field-group">
+                  <label>Model</label>
+                  <select id="modelSelect">
+                    <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (fast)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (stable)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (best quality, slower)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">📝</span> Module Details</div>
+              <div class="gen-body">
+                <div class="field-row">
+                  <div class="field-group"><label>Grade Level</label>
+                    <select id="gradeLevel">
+                      <option value="1">Grade 1</option><option value="2">Grade 2</option>
+                      <option value="3">Grade 3</option><option value="4" selected>Grade 4</option>
+                      <option value="5">Grade 5</option><option value="6">Grade 6</option>
+                    </select>
+                  </div>
+                  <div class="field-group"><label>Subject</label>
+                    <select id="subject">
+                      <option>Math</option><option>Science</option><option>English</option>
+                      <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
+                      <option>ESP</option><option>Computer</option><option>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <input type="text" id="newSubjectInput" placeholder="Add custom subject…" style="flex:1;padding:9px 12px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:13px;outline:none">
+                    <button class="btn btn-success btn-sm" onclick="addSubject()" style="width:auto">+ Add</button>
+                    <button class="btn btn-danger btn-sm" onclick="removeSubject()" style="width:auto">− Remove</button>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>Module Title</label><input type="text" id="moduleTitle" placeholder="e.g. Addition of Fractions"></div>
+                  <div class="field-group"><label>Quarter / Week</label><input type="text" id="moduleQuarter" placeholder="Q1 W3"></div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>Teacher Name</label><input type="text" id="teacherName" placeholder="Mrs. Santos"></div>
+                  <div class="field-group"><label>School Name</label><input type="text" id="schoolName" placeholder="Upper Klinan SDA School Inc."></div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>School Year</label><input type="text" id="schoolYear" placeholder="2026-2027"></div>
+                  <div class="field-group"><label>Section</label><input type="text" id="sectionName" placeholder="Beryl"></div>
+                </div>
+                <div class="field-group"><label>Additional Instructions (optional)</label>
+                  <textarea id="extraInstructions" placeholder="e.g. Focus on word problems, include drawings..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">📤</span> Upload Source Material</div>
+              <div class="gen-body">
+                <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+                  <span class="dz-icon">📁</span>
+                  <h4>Drop files here or click to browse</h4>
+                  <p>Supports: JPG, PNG, PDF, DOCX</p>
+                  <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" style="display:none" onchange="onFileSelect(event)">
+                </div>
+                <div class="file-chips" id="fileChips"></div>
+                <div class="field-group mt-12">
+                  <label>Or paste text directly</label>
+                  <textarea id="pastedText" placeholder="Paste book content or lesson text here..." style="min-height:100px"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🧩</span> Activity Management</div>
+              <div class="gen-body">
+                <div class="field-group">
+                  <label>How many activities?</label>
+                  <input type="number" id="activityCount" min="0" max="10" value="3">
+                </div>
+                <div class="field-group">
+                  <label>Activity types to include</label>
+                  <div id="activityTypeList" style="display:flex;flex-direction:column;gap:6px">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0"><input type="checkbox" class="act-type" value="check_x" checked> ✅ Check or X</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0"><input type="checkbox" class="act-type" value="true_false" checked> 🟢 True or False</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0"><input type="checkbox" class="act-type" value="matching"> 🔗 Matching Type</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0"><input type="checkbox" class="act-type" value="draw"> ✏️ Draw</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0"><input type="checkbox" class="act-type" value="cut_paste"> ✂️ Cut and Paste Picture</label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);text-transform:none;letter-spacing:0"><input type="checkbox" class="act-type" value="multiple_choice" checked> 🔘 Multiple Choice</label>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label>Selected (click × to remove)</label>
+                  <div id="selectedActChips" class="file-chips"></div>
+                </div>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);margin-top:4px">
+                  <input type="checkbox" id="includeAnswerKey" checked> 🔑 Include Answer Key (teacher only)
+                </label>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🎨</span> Page Border Style</div>
+              <div class="gen-body">
+                <div class="border-grid" id="borderGrid"></div>
+                <button class="btn btn-secondary btn-sm mt-8" onclick="randomBorder()" style="width:100%">🎲 Random Border</button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary w-full" id="generateBtn" style="font-size:16px;padding:16px" onclick="generateModule()">
+              ✨ Generate Module
+            </button>
+          </div>
+
+          <div class="gen-panel" style="position:relative">
+            <div class="gen-panel-header"><span class="ph-icon">👀</span> Live Preview <span style="margin-left:auto;font-size:12px;color:var(--muted)">Updates after generation</span></div>
+            <div style="padding:20px">
+              <div class="step-indicators" id="stepIndicators">
+                <div class="step-dot" id="step1" title="Extract"></div>
+                <div class="step-dot" id="step2" title="Prompt"></div>
+                <div class="step-dot" id="step3" title="Gemini"></div>
+                <div class="step-dot" id="step4" title="Parse"></div>
+                <div class="step-dot" id="step5" title="Render"></div>
+              </div>
+              <div class="preview-area" id="previewArea">
+                <div class="empty-state">
+                  <span class="es-icon">🌈</span>
+                  <h3>Module preview will appear here</h3>
+                  <p>Fill in the details on the left and click Generate!</p>
+                </div>
+                <div class="gen-overlay" id="genOverlay">
+                  <span class="gen-spinner" id="genSpinner">⚙️</span>
+                  <div class="gen-status" id="genStatus">Preparing...</div>
+                  <div class="gen-step-text" id="genStepText">Please wait</div>
+                  <div class="progress-bar" style="width:260px"><div class="progress-fill" id="progressFill"></div></div>
+                  <button class="btn btn-secondary btn-sm mt-12" style="width:auto" onclick="cancelGeneration()">Cancel</button>
+                </div>
+              </div>
+              <div id="exportButtons" class="mt-16 flex gap-8" style="justify-content:center;flex-wrap:wrap;padding:12px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
+                <button class="btn btn-success" id="btnExportDocx" style="width:auto" onclick="exportDocx()" disabled>📄 Download .docx</button>
+                <button class="btn btn-primary" id="btnExportHtml" style="width:auto" onclick="exportHtml()" disabled>🌐 Download .html (exact style)</button>
+                <button class="btn btn-primary" id="btnPrintPdf" style="width:auto" onclick="printPdf()" disabled>🖨️ Print / Save as PDF</button>
+                <button class="btn btn-secondary" id="btnSaveModule" style="width:auto" onclick="saveToHistory()" disabled>💾 Save Module</button>
+                <button class="btn btn-warning" id="btnRegen" style="width:auto" onclick="regenerate()" disabled>🔄 Regenerate</button>
+                <button class="btn btn-secondary" id="btnNewBorder" style="width:auto;background:linear-gradient(45deg,#FF6B9D,#FFD93D,#6BCB77,#6C63FF);color:#fff" onclick="randomBorder()" disabled>🎨 New Border</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="panel" id="panel-history">
+        <div class="history-panel">
+          <div class="history-header"><h3>📚 My Saved Modules</h3><span id="historyCount" class="badge">0 modules</span></div>
+          <div id="historyListFull"><div class="empty-state"><span class="es-icon">📭</span><h3>No saved modules</h3><p>Generate and save your first module!</p></div></div>
+        </div>
+      </div>
+
+
+      <!-- LESSON SUMMARY GENERATOR -->
+      <div class="panel" id="panel-summary">
+        <div class="generator-grid">
+          <div>
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">📝</span> Lesson Summary Details</div>
+              <div class="gen-body">
+                <div class="field-row">
+                  <div class="field-group"><label>Grade Level</label>
+                    <select id="sumGrade">
+                      <option value="1">Grade 1</option><option value="2">Grade 2</option>
+                      <option value="3">Grade 3</option><option value="4" selected>Grade 4</option>
+                      <option value="5">Grade 5</option><option value="6">Grade 6</option>
+                    </select>
+                  </div>
+                  <div class="field-group"><label>Subject</label>
+                    <select id="sumSubject">
+                      <option>Math</option><option>Science</option><option>English</option>
+                      <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
+                      <option>ESP</option><option>Computer</option><option>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <input type="text" id="sumNewSubjectInput" placeholder="Add custom subject…" style="flex:1;padding:9px 12px;border:2px solid #eef0f6;border-radius:10px;font-family:Nunito,sans-serif;font-size:13px;outline:none">
+                    <button class="btn btn-success btn-sm" onclick="addSumSubject()" style="width:auto">+ Add</button>
+                    <button class="btn btn-danger btn-sm" onclick="removeSumSubject()" style="width:auto">− Remove</button>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>Lesson Title</label><input type="text" id="sumTitle" placeholder="e.g. Photosynthesis"></div>
+                  <div class="field-group"><label>How many pages?</label>
+                    <select id="sumPages">
+                      <option value="1">1 page</option>
+                      <option value="2" selected>2 pages</option>
+                      <option value="3">3 pages</option>
+                      <option value="4">4 pages</option>
+                      <option value="5">5 pages</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-group"><label>Additional Instructions (optional)</label>
+                  <textarea id="sumExtra" placeholder="e.g. Focus on definitions, include examples..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🖼️</span> Upload Pictures (1–5)</div>
+              <div class="gen-body">
+                <div class="dropzone" id="sumDropzone" onclick="document.getElementById('sumFileInput').click()" ondragover="sumDragOver(event)" ondragleave="sumDragLeave(event)" ondrop="sumDrop(event)">
+                  <span class="dz-icon">🖼️</span>
+                  <h4>Drop 1–5 pictures or click to browse</h4>
+                  <p>AI will read the pictures accurately (JPG, PNG, WEBP)</p>
+                  <input type="file" id="sumFileInput" multiple accept=".jpg,.jpeg,.png,.webp" style="display:none" onchange="sumFileSelect(event)">
+                </div>
+                <div class="file-chips" id="sumFileChips"></div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🎨</span> Page Border Style</div>
+              <div class="gen-body">
+                <div class="border-grid" id="sumBorderGrid"></div>
+                <button class="btn btn-secondary btn-sm mt-8" onclick="sumRandomBorder()" style="width:100%">🎲 Random Border</button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary w-full" id="sumGenerateBtn" style="font-size:16px;padding:16px" onclick="generateSummary()">
+              ✨ Generate Lesson Summary
+            </button>
+          </div>
+
+          <div class="gen-panel" style="position:relative">
+            <div class="gen-panel-header"><span class="ph-icon">👀</span> Live Preview</div>
+            <div style="padding:20px">
+              <div class="preview-area" id="sumPreviewArea">
+                <div class="empty-state">
+                  <span class="es-icon">📝</span>
+                  <h3>Lesson summary preview will appear here</h3>
+                  <p>Upload pictures and click Generate!</p>
+                </div>
+                <div class="gen-overlay" id="sumGenOverlay">
+                  <span class="gen-spinner">⚙️</span>
+                  <div class="gen-status" id="sumGenStatus">Preparing...</div>
+                  <div class="gen-step-text" id="sumGenStepText">Please wait</div>
+                  <div class="progress-bar" style="width:260px"><div class="progress-fill" id="sumProgressFill"></div></div>
+                  <button class="btn btn-secondary btn-sm mt-12" style="width:auto" onclick="cancelSumGeneration()">Cancel</button>
+                </div>
+              </div>
+              <div class="mt-16 flex gap-8" style="justify-content:center;flex-wrap:wrap;padding:12px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
+                <button class="btn btn-success" id="sumBtnDocx" style="width:auto" onclick="exportSummaryDocx()" disabled>📄 Download .docx</button>
+                <button class="btn btn-primary" id="sumBtnHtml" style="width:auto" onclick="exportSummaryHtml()" disabled>🌐 Download .html</button>
+                <button class="btn btn-primary" id="sumBtnPdf" style="width:auto" onclick="printSummaryPdf()" disabled>🖨️ Print / Save as PDF</button>
+                <button class="btn btn-secondary" id="sumBtnSave" style="width:auto" onclick="saveSummary()" disabled>💾 Save to My Lesson Summaries</button>
+                <button class="btn btn-warning" id="sumBtnRegen" style="width:auto" onclick="generateSummary()" disabled>🔄 Regenerate</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LESSON SUMMARY HISTORY -->
+      <div class="panel" id="panel-summaryHistory">
+        <div class="history-panel">
+          <div class="history-header"><h3>📒 My Saved Lesson Summaries</h3><span id="sumHistoryCount" class="badge">0 summaries</span></div>
+          <div id="sumHistoryListFull"><div class="empty-state"><span class="es-icon">📭</span><h3>No saved lesson summaries</h3><p>Generate and save your first lesson summary!</p></div></div>
+        </div>
+      </div>
+
+
+
+      <!-- SETTINGS -->
+      <div class="panel" id="panel-settings">
+        <div class="settings-grid">
+          <div class="settings-card">
+            <div class="sc-header">🔑 Saved Gemini API Keys</div>
+            <div class="sc-body">
+              <div class="field-row">
+                <div class="field-group"><label>Key Nickname</label><input type="text" id="settingsKeyName" placeholder="My Key 1"></div>
+                <div class="field-group"><label>API Key</label><input type="password" id="settingsKeyVal" placeholder="AIza..."></div>
+              </div>
+              <button class="btn btn-primary btn-sm w-full" onclick="addApiKeyFromSettings()">+ Add API Key</button>
+              <div style="margin-top:16px" id="settingsKeyList"><div class="empty-state" style="padding:20px"><span class="es-icon">🔑</span><h3>No keys saved</h3></div></div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="sc-header">👤 Account Info</div>
+            <div class="sc-body">
+              <div class="field-group"><label>Display Name</label><input type="text" id="settingsName" placeholder="Mrs. Santos"></div>
+              <div class="field-group"><label>School Name (Default)</label><input type="text" id="settingsSchool" placeholder="School name"></div>
+              <button class="btn btn-primary btn-sm w-full" onclick="saveUserPrefs()">💾 Save Preferences</button>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="sc-header">📊 Usage Stats</div>
+            <div class="sc-body">
+              <div class="stats-row" style="grid-template-columns:1fr 1fr;gap:12px">
+                <div class="stat-card" data-emoji="📄"><div class="stat-val" id="settingsStatModules">0</div><div class="stat-label">Total Modules</div></div>
+                <div class="stat-card" data-emoji="🔑"><div class="stat-val" id="settingsStatKeys">0</div><div class="stat-label">API Keys</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="sc-header">ℹ️ About</div>
+            <div class="sc-body">
+              <p style="font-size:13px;line-height:1.7;color:var(--muted)">
+                <strong style="color:var(--text)">EduModule AI</strong> v1.1<br><br>
+                AI-powered educational module generator for Grade 1–6 teachers. Uses Google Gemini AI for content and exports formatted .docx files (8.5"×13", 0.5" margins).<br><br>
+                Built with Firebase, Gemini AI, docx.js, Tesseract.js, PDF.js.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HELP -->
+      <div class="panel" id="panel-help">
+        <div class="gen-panel">
+          <div class="gen-panel-header"><span class="ph-icon">❓</span> How to Use EduModule AI</div>
+          <div class="gen-body" style="max-width:700px">
+            <div style="display:grid;gap:16px">
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--primary)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--primary)">Step 1: Get a Gemini API Key</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Go to <strong>aistudio.google.com</strong> → Get API Key → Create API Key. It's free! Paste it in Settings → API Keys.</p>
+              </div>
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--secondary)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--secondary)">Step 2: Fill Module Details</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Select grade, subject, and enter module title, teacher, and school. These appear on the cover page.</p>
+              </div>
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--green)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--green)">Step 3: Upload Source Material</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Upload book pages as images, PDF, or Word files — or paste text directly.</p>
+              </div>
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--orange)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--orange)">Step 4: Generate &amp; Export</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Click "Generate Module." Preview the result, then download as .docx (Folio long, narrow margins, ready to print).</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== FIREBASE CONFIG ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyDwVxQ5evPij5C0wE-OOls3teDHSiN7wno",
+  authDomain: "output-snap.firebaseapp.com",
+  projectId: "output-snap",
+  storageBucket: "output-snap.firebasestorage.app",
+  messagingSenderId: "619426054351",
+  appId: "1:619426054351:web:6513e32f024fa619a4f7ba"
+};
+
+let db = null, auth = null, currentUser = null, demoMode = false;
+try {
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+} catch(e) {
+  console.warn("Firebase init failed — demo mode only", e);
+  demoMode = true;
+}
+
+// PDF.js worker setup
+if (window.pdfjsLib) {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ==================== STATE ====================
+let appState = { apiKeys: [], modules: [], activeApiKey: '', selectedBorder: 0, lastModuleData: null, userPrefs: {}, summaries: [], sumSelectedBorder: 0, lastSummaryData: null };
+let currentModuleJSON = null;
+let uploadedFiles = [];
+let genAbort = null;
+
+// ==================== BORDERS ====================
+const BORDERS = [
+  { name: 'Rainbow',       style: 'linear-gradient(45deg,#FF6B9D,#FFD93D,#6BCB77,#6C63FF)', type: 'gradient', color:'#6C63FF' },
+  { name: 'Stars',         style: '#6C63FF', emoji: '⭐', type: 'dotted', color:'#6C63FF' },
+  { name: 'Flowers',       style: '#FF6B9D', emoji: '🌸', type: 'dotted', color:'#FF6B9D' },
+  { name: 'Clouds',        style: '#6BCB77', emoji: '☁️', type: 'double', color:'#6BCB77' },
+  { name: 'Hearts',        style: '#FF9F43', emoji: '💖', type: 'dotted', color:'#FF9F43' },
+  { name: 'Waves',         style: 'linear-gradient(135deg,#6C63FF,#6BCB77)', type: 'gradient', color:'#6C63FF' },
+  { name: 'Classic Blue',  style: '#3B82F6', type: 'solid', color:'#3B82F6' },
+  { name: 'Sunshine',      style: '#FFD93D', type: 'solid', color:'#FFD93D' },
+  { name: 'Sunset',        style: 'linear-gradient(45deg,#FF512F,#F09819)', type: 'gradient', color:'#FF512F' },
+  { name: 'Ocean',         style: 'linear-gradient(45deg,#36D1DC,#5B86E5)', type: 'gradient', color:'#36D1DC' },
+  { name: 'Candy',         style: 'linear-gradient(45deg,#FF61D2,#FE9090)', type: 'gradient', color:'#FF61D2' },
+  { name: 'Mint',          style: 'linear-gradient(45deg,#11998e,#38ef7d)', type: 'gradient', color:'#11998e' },
+  { name: 'Lavender',      style: 'linear-gradient(45deg,#A18CD1,#FBC2EB)', type: 'gradient', color:'#A18CD1' },
+  { name: 'Lemon Lime',    style: 'linear-gradient(45deg,#F7FF00,#DB36A4)', type: 'gradient', color:'#DB36A4' },
+  { name: 'Galaxy',        style: 'linear-gradient(45deg,#0F2027,#2C5364,#6C63FF)', type: 'gradient', color:'#6C63FF' },
+  { name: 'Strawberry',    style: '#E91E63', emoji: '🍓', type: 'double', color:'#E91E63' },
+  { name: 'Apple',         style: '#43A047', emoji: '🍎', type: 'double', color:'#43A047' },
+  { name: 'Crayon Pink',   style: '#FF8FA3', type: 'dashed', color:'#FF8FA3' },
+  { name: 'Crayon Teal',   style: '#26C6DA', type: 'dashed', color:'#26C6DA' },
+  { name: 'Crayon Purple', style: '#AB47BC', type: 'dashed', color:'#AB47BC' },
+  { name: 'Crayon Orange', style: '#FB8C00', type: 'dashed', color:'#FB8C00' },
+  { name: 'Bubblegum',     style: 'linear-gradient(45deg,#FFAFBD,#FFC3A0)', type: 'gradient', color:'#FFAFBD' },
+  { name: 'Tropical',      style: 'linear-gradient(45deg,#F2994A,#F2C94C,#6BCB77)', type: 'gradient', color:'#F2994A' },
+  { name: 'Royal',         style: 'linear-gradient(45deg,#8E2DE2,#4A00E0)', type: 'gradient', color:'#8E2DE2' },
+];
+
+function renderBorderGrid() {
+  const grid = document.getElementById('borderGrid');
+  grid.innerHTML = BORDERS.map((b, i) => `
+    <div class="border-opt ${i===appState.selectedBorder?'selected':''}"
+         onclick="selectBorder(${i})"
+         title="${b.name}"
+         style="background:${b.style}">
+      ${b.emoji ? `<div style="text-align:center;padding-top:14px;font-size:20px">${b.emoji}</div>` : ''}
+    </div>
+  `).join('');
+}
+function selectBorder(i){ appState.selectedBorder = i; renderBorderGrid(); if(currentModuleJSON) renderPreview(currentModuleJSON); }
+function randomBorder(){
+  let next = appState.selectedBorder;
+  if (BORDERS.length > 1) { while (next === appState.selectedBorder) next = Math.floor(Math.random()*BORDERS.length); }
+  appState.selectedBorder = next;
+  renderBorderGrid();
+  if (currentModuleJSON) renderPreview(currentModuleJSON);
+  showToast('🎨 New border: ' + BORDERS[next].name, 'success');
+}
+
+// ==================== AUTH ====================
+function switchAuth(mode) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (mode==='login'&&i===0)||(mode==='register'&&i===1)));
+  document.getElementById('loginForm').classList.toggle('hidden', mode !== 'login');
+  document.getElementById('registerForm').classList.toggle('hidden', mode !== 'register');
+}
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if (!auth) { enterDemoMode(); return; }
+  if (!email || !pass) return showAuthError('Enter email and password');
+  try { await auth.signInWithEmailAndPassword(email, pass); }
+  catch(e) { showAuthError(friendlyAuthError(e)); }
+}
+async function doRegister() {
+  const name = document.getElementById('regName').value.trim() || 'Teacher';
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPass').value;
+  if (!auth) { enterDemoMode(name); return; }
+  if (!email || pass.length < 6) return showAuthError('Valid email and 6+ char password required');
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: name });
+    try { await db.collection('users').doc(cred.user.uid).set({ name, email, createdAt: new Date() }); } catch(e){}
+  } catch(e) { showAuthError(friendlyAuthError(e)); }
+}
+async function doGoogleLogin() {
+  if (!auth) { enterDemoMode(); return; }
+  try { const p = new firebase.auth.GoogleAuthProvider(); await auth.signInWithPopup(p); }
+  catch(e) { showAuthError(friendlyAuthError(e)); }
+}
+function friendlyAuthError(e){
+  const msg = (e && e.message) || String(e);
+  if (msg.includes('user-not-found')) return 'No account with that email.';
+  if (msg.includes('wrong-password')) return 'Wrong password.';
+  if (msg.includes('email-already-in-use')) return 'Email already registered.';
+  if (msg.includes('invalid-email')) return 'Invalid email format.';
+  if (msg.includes('weak-password')) return 'Password too weak.';
+  return msg.replace('Firebase: ','');
+}
+function doLogout() {
+  try { localStorage.removeItem('edumodule_demo'); } catch(e){}
+  if (demoMode || !auth) {
+    demoMode = false; currentUser = null; appState = { apiKeys: [], modules: [], activeApiKey: '', selectedBorder: 0, lastModuleData: null, userPrefs: {}, summaries: [], sumSelectedBorder: 0, lastSummaryData: null };
+    document.getElementById('authScreen').style.display='flex';
+    document.getElementById('mainApp').style.display='none';
+    return;
+  }
+  auth.signOut();
+}
+function showAuthError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 5000);
+}
+function enterDemoMode(name = 'Demo Teacher') {
+  demoMode = true;
+  currentUser = { uid: 'demo', displayName: name, email: 'demo@local' };
+  try { localStorage.setItem('edumodule_demo', JSON.stringify({ name })); } catch(e){}
+  onUserLoggedIn(currentUser);
+}
+// Restore demo session on hard refresh
+try {
+  const savedDemo = localStorage.getItem('edumodule_demo');
+  if (savedDemo) { const d = JSON.parse(savedDemo); demoMode = true; currentUser = { uid:'demo', displayName: d.name||'Demo Teacher', email:'demo@local' }; }
+} catch(e){}
+if (auth) {
+  auth.onAuthStateChanged(user => {
+    if (user) { demoMode = false; try{localStorage.removeItem('edumodule_demo');}catch(e){} currentUser = user; onUserLoggedIn(user); }
+    else if (demoMode && currentUser) { onUserLoggedIn(currentUser); }
+    else {
+      document.getElementById('authScreen').style.display='flex';
+      document.getElementById('mainApp').style.display='none';
+    }
+  });
+} else if (demoMode && currentUser) {
+  // No firebase available, restore demo immediately
+  document.addEventListener('DOMContentLoaded', () => onUserLoggedIn(currentUser));
+}
+
+async function onUserLoggedIn(user) {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('sidebarName').textContent = user.displayName || 'Teacher';
+  document.getElementById('sidebarEmail').textContent = user.email || (demoMode ? 'Guest mode' : '');
+  document.getElementById('sidebarAvatar').textContent = (user.displayName||'T')[0].toUpperCase();
+  await loadUserData();
+  renderBorderGrid();
+  updateDashboardStats();
+}
+
+// ==================== DATA ====================
+async function loadUserData() {
+  if (demoMode) {
+    try {
+      const saved = localStorage.getItem('edumodule_data');
+      if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; appState.summaries = d.summaries||[]; }
+    } catch(e) { console.warn(e); }
+    populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList(); applyPrefs(); return;
+  }
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists) { const d = doc.data(); appState.userPrefs = d.prefs||{}; applyPrefs(); }
+    const keys = await db.collection('users').doc(currentUser.uid).collection('apiKeys').get();
+    appState.apiKeys = keys.docs.map(d => ({id: d.id, ...d.data()}));
+    const modules = await db.collection('users').doc(currentUser.uid).collection('modules').orderBy('createdAt','desc').limit(50).get();
+    appState.modules = modules.docs.map(d => ({id: d.id, ...d.data()}));
+    try {
+      const sums = await db.collection('users').doc(currentUser.uid).collection('summaries').orderBy('createdAt','desc').limit(50).get();
+      appState.summaries = sums.docs.map(d => ({id: d.id, ...d.data()}));
+    } catch(e){ appState.summaries = []; }
+    // Merge any items that only exist in localStorage (cloud-save fallbacks) so they survive refresh
+    try {
+      const saved = localStorage.getItem('edumodule_data');
+      if (saved) {
+        const d = JSON.parse(saved);
+        const mIds = new Set(appState.modules.map(m=>m.id));
+        (d.modules||[]).forEach(m => { if (!mIds.has(m.id)) appState.modules.push(m); });
+        const sIds = new Set(appState.summaries.map(s=>s.id));
+        (d.summaries||[]).forEach(s => { if (!sIds.has(s.id)) appState.summaries.push(s); });
+      }
+    } catch(e){}
+    saveLocalData();
+    populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList();
+  } catch(e) {
+    console.error('loadUserData', e);
+    // Cloud load failed — fall back to localStorage so user doesn't see an empty list
+    try {
+      const saved = localStorage.getItem('edumodule_data');
+      if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; appState.summaries = d.summaries||[]; }
+    } catch(e2){}
+    populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList(); applyPrefs();
+  }
+}
+function saveLocalData() {
+  try { localStorage.setItem('edumodule_data', JSON.stringify({ apiKeys: appState.apiKeys, modules: appState.modules, prefs: appState.userPrefs, summaries: appState.summaries })); } catch(e){}
+}
+function applyPrefs() {
+  const p = appState.userPrefs || {};
+  if (p.teacherName) { document.getElementById('teacherName').value = p.teacherName; document.getElementById('settingsName').value = p.teacherName; }
+  if (p.schoolName)  { document.getElementById('schoolName').value = p.schoolName;   document.getElementById('settingsSchool').value = p.schoolName; }
+  if (p.schoolYear)  document.getElementById('schoolYear').value = p.schoolYear;
+}
+async function saveUserPrefs() {
+  appState.userPrefs = {
+    teacherName: document.getElementById('settingsName').value.trim(),
+    schoolName:  document.getElementById('settingsSchool').value.trim()
+  };
+  if (demoMode) { saveLocalData(); applyPrefs(); return showToast('✅ Preferences saved!', 'success'); }
+  try {
+    await db.collection('users').doc(currentUser.uid).set({ prefs: appState.userPrefs }, { merge: true });
+    applyPrefs(); showToast('✅ Preferences saved!', 'success');
+  } catch(e) { showToast('Error saving preferences', 'error'); }
+}
+
+// ==================== API KEYS ====================
+function populateApiKeyDropdown() {
+  const sel = document.getElementById('apiKeySelect');
+  sel.innerHTML = '<option value="">— Select saved key —</option>' + appState.apiKeys.map(k => `<option value="${k.id}">${escapeHtml(k.name)}</option>`).join('');
+  if (appState.apiKeys.length && !appState.activeApiKey) {
+    appState.activeApiKey = appState.apiKeys[0].value;
+    document.getElementById('apiKeyInput').value = appState.activeApiKey;
+    sel.value = appState.apiKeys[0].id;
+  }
+  renderSettingsKeyList();
+  updateDashboardStats();
+}
+function onApiKeySelect() {
+  const id = document.getElementById('apiKeySelect').value;
+  const key = appState.apiKeys.find(k => k.id === id);
+  if (key) { document.getElementById('apiKeyInput').value = key.value; appState.activeApiKey = key.value; updateDashboardStats(); }
+}
+async function saveApiKey() {
+  const name = (document.getElementById('apiKeyName').value || ('Key ' + (appState.apiKeys.length + 1))).trim();
+  const value = document.getElementById('apiKeyInput').value.trim();
+  if (!value) return showToast('Enter an API key first', 'error');
+  if (demoMode) {
+    const newKey = { id: 'key_' + Date.now(), name, value };
+    appState.apiKeys.push(newKey); appState.activeApiKey = value;
+    saveLocalData(); populateApiKeyDropdown();
+    document.getElementById('apiKeyName').value = '';
+    return showToast('🔑 Key saved!', 'success');
+  }
+  try {
+    const ref = await db.collection('users').doc(currentUser.uid).collection('apiKeys').add({ name, value, createdAt: new Date() });
+    appState.apiKeys.push({ id: ref.id, name, value }); appState.activeApiKey = value;
+    populateApiKeyDropdown();
+    document.getElementById('apiKeyName').value = '';
+    showToast('🔑 Key saved!', 'success');
+  } catch(e) { showToast('Error saving key', 'error'); }
+}
+async function addApiKeyFromSettings() {
+  document.getElementById('apiKeyName').value = document.getElementById('settingsKeyName').value;
+  document.getElementById('apiKeyInput').value = document.getElementById('settingsKeyVal').value;
+  await saveApiKey();
+  document.getElementById('settingsKeyName').value = '';
+  document.getElementById('settingsKeyVal').value = '';
+}
+async function deleteApiKey(id) {
+  appState.apiKeys = appState.apiKeys.filter(k => k.id !== id);
+  if (!demoMode) { try { await db.collection('users').doc(currentUser.uid).collection('apiKeys').doc(id).delete(); } catch(e){} }
+  saveLocalData(); populateApiKeyDropdown(); showToast('🗑️ Key deleted', 'success');
+}
+function renderSettingsKeyList() {
+  const el = document.getElementById('settingsKeyList');
+  if (!appState.apiKeys.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="es-icon">🔑</span><h3>No keys saved</h3></div>'; return; }
+  el.innerHTML = appState.apiKeys.map(k => `
+    <div class="api-key-item">
+      <div style="flex:1;min-width:0"><div class="ak-name">${escapeHtml(k.name)}</div><div class="ak-val">${escapeHtml(k.value.slice(0,8))}••••••••</div></div>
+      <div class="ak-actions"><button class="btn-icon" onclick="deleteApiKey('${k.id}')" title="Delete">🗑️</button></div>
+    </div>
+  `).join('');
+}
+
+// ==================== FILES ====================
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('dropzone').classList.remove('drag-over'); }
+function onDrop(e) { e.preventDefault(); document.getElementById('dropzone').classList.remove('drag-over'); processFiles(e.dataTransfer.files); }
+function onFileSelect(e) { processFiles(e.target.files); e.target.value = ''; }
+function processFiles(files) {
+  for (const f of files) {
+    if (f.size > 15 * 1024 * 1024) { showToast(`⚠️ ${f.name} too large (max 15MB)`, 'error'); continue; }
+    uploadedFiles.push(f);
+  }
+  renderFileChips();
+}
+function renderFileChips() {
+  document.getElementById('fileChips').innerHTML = uploadedFiles.map((f, i) => `
+    <div class="file-chip">${fileIcon(f.name)} ${escapeHtml(f.name)} <button onclick="removeFile(${i})" title="Remove">×</button></div>
+  `).join('');
+}
+function fileIcon(name) {
+  if (/\.(jpe?g|png|webp)$/i.test(name)) return '🖼️';
+  if (/\.pdf$/i.test(name)) return '📄';
+  if (/\.docx?$/i.test(name)) return '📝';
+  return '📁';
+}
+function removeFile(i) { uploadedFiles.splice(i, 1); renderFileChips(); }
+
+async function extractTextFromFiles(onProgress) {
+  const texts = [];
+  for (let i = 0; i < uploadedFiles.length; i++) {
+    const f = uploadedFiles[i];
+    if (genAbort && genAbort.signal.aborted) throw new Error('Cancelled');
+    onProgress && onProgress(`Reading ${f.name} (${i+1}/${uploadedFiles.length})…`);
+    try {
+      if (/\.(jpe?g|png|webp)$/i.test(f.name)) {
+        const result = await Tesseract.recognize(f, 'eng', { logger: () => {} });
+        texts.push(result.data.text);
+      } else if (/\.docx?$/i.test(f.name)) {
+        const buf = await f.arrayBuffer();
+        const r = await mammoth.extractRawText({ arrayBuffer: buf });
+        texts.push(r.value);
+      } else if (/\.pdf$/i.test(f.name)) {
+        texts.push(await extractPdfText(f));
+      }
+    } catch(e) { console.error('Extraction error:', f.name, e); texts.push(`[Could not read ${f.name}]`); }
+  }
+  return texts.join('\n\n');
+}
+async function extractPdfText(file) {
+  try {
+    if (!window.pdfjsLib) return '[PDF.js not loaded]';
+    const arrayBuf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+    let full = '';
+    const max = Math.min(pdf.numPages, 20); // cap to keep prompt tight
+    for (let i = 1; i <= max; i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      full += tc.items.map(s => s.str).join(' ') + '\n';
+    }
+    return full;
+  } catch(e) { console.error(e); return '[Could not extract PDF text]'; }
+}
+
+// ==================== GEMINI ====================
+async function callGemini(prompt, apiKey, model) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const controller = new AbortController();
+  if (genAbort) genAbort.signal.addEventListener('abort', () => controller.abort());
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: controller.signal,
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.95,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json'
+      }
+    })
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const err = await res.json(); msg = err.error?.message || msg; } catch(e){}
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  const txt = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+  if (!txt) throw new Error('Empty response from Gemini');
+  return txt;
+}
+
+function extractJson(raw) {
+  let s = String(raw).trim();
+  // strip code fences
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/,'').trim();
+  // find first { and last }
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a !== -1 && b !== -1 && b > a) s = s.slice(a, b + 1);
+  return JSON.parse(s);
+}
+
+function getSelectedActivityTypes() {
+  return Array.from(document.querySelectorAll('.act-type:checked')).map(c => c.value);
+}
+const ACT_TYPE_LABEL = {
+  check_x: '✅ Check or X',
+  true_false: '🟢 True or False',
+  matching: '🔗 Matching Type',
+  draw: '✏️ Draw',
+  cut_paste: '✂️ Cut and Paste Picture',
+  multiple_choice: '🔘 Multiple Choice'
+};
+function renderSelectedActChips() {
+  const wrap = document.getElementById('selectedActChips');
+  if (!wrap) return;
+  const sel = getSelectedActivityTypes();
+  if (!sel.length) { wrap.innerHTML = '<span style="font-size:12px;color:var(--muted)">No types selected</span>'; return; }
+  wrap.innerHTML = sel.map(v => `<div class="file-chip">${ACT_TYPE_LABEL[v]||v} <button onclick="removeActType('${v}')" title="Remove">×</button></div>`).join('');
+}
+function removeActType(v) {
+  const cb = document.querySelector(`.act-type[value="${v}"]`);
+  if (cb) cb.checked = false;
+  renderSelectedActChips();
+}
+
+function buildGeminiPrompt(sourceText, formData) {
+  const gradeDesc = {
+    '1': 'very simple words, short sentences, basic concepts, lots of encouragement',
+    '2': 'simple vocabulary, short paragraphs, concrete examples',
+    '3': 'moderate vocabulary, clear explanations, relatable examples',
+    '4': 'standard school vocabulary, organized paragraphs, practical examples',
+    '5': 'more complex vocabulary, detailed explanations, analytical thinking',
+    '6': 'advanced vocabulary, comprehensive content, critical thinking skills'
+  };
+  const src = (sourceText || '').slice(0, 8000);
+  const subjLower = (formData.subject || '').toLowerCase();
+  const isFilipino = /filipino|tagalog|araling\s*panlipunan|\bap\b|sibika|hekasi|mtb|mother\s*tongue/.test(subjLower);
+  const languageRule = isFilipino
+    ? `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE module — every objective, vocabulary word AND definition, motivation activity, lesson intro, all section titles, all content paragraphs, activity titles and instructions, table headers and rows, summary points, assessment questions, activities, and answer keys — in natural, grammatically correct FILIPINO (Tagalog). Do NOT use English except for proper nouns. Use age-appropriate Filipino vocabulary for Grade ${formData.grade} learners.\n`
+    : '';
+  const actCount = Math.max(0, parseInt(formData.activityCount||'0', 10) || 0);
+  const actTypes = formData.activityTypes || [];
+  const activityRule = (actCount > 0 && actTypes.length)
+    ? `\n\nACTIVITY REQUIREMENTS (VERY IMPORTANT):\nGenerate EXACTLY ${actCount} student activities in the "activities" array. Use ONLY these activity types and rotate among them: ${actTypes.join(', ')}.\nEvery activity MUST include an "answerKey" array with the correct answer for every item (for teacher use only).\nActivity-type item formats:\n- check_x: 5-8 statements. items=["statement", ...]; answerKey=["check"|"x", ...]\n- true_false: 5-8 statements. items=["statement", ...]; answerKey=["true"|"false", ...]\n- matching: 5-6 pairs. items=[{"left":"...","right":"..."}, ...]; answerKey: pairs in correct order\n- draw: items=["what to draw"]; answerKey=["description of expected drawing"]\n- cut_paste: 4-6 labels to sort. items=[{"label":"...","category":"..."}, ...]; answerKey=[{"label":"...","correctCategory":"..."}, ...]\n- multiple_choice: 5-8 questions. items=[{"question":"...","choices":["A","B","C","D"]}, ...]; answerKey=["A", ...]\n`
+    : '';
+  return `You are an expert Filipino elementary curriculum writer creating a learning module for Grade ${formData.grade} students.
+Reading level: ${gradeDesc[formData.grade] || gradeDesc['4']}${languageRule}${activityRule}
+
+MODULE INFO:
+- Title: ${formData.title}
+- Subject: ${formData.subject}
+- Grade: ${formData.grade}
+- Quarter/Week: ${formData.quarter}
+${formData.extra ? `- Special instructions: ${formData.extra}` : ''}
+
+SOURCE CONTENT (use this as the primary basis for the lesson; if empty, invent age-appropriate content):
+"""
+${src || '(none provided — generate appropriate content for the subject and grade)'}
+"""
+
+Return ONLY valid JSON (no markdown, no commentary, no backticks). Use this exact schema:
+{
+  "learningObjectives": ["3 to 5 short objectives starting with action verbs"],
+  "motivationActivity": "1 engaging opening activity, question, or short story (2-4 sentences)",
+  "lessonIntro": "Friendly introduction paragraph (3-5 sentences)",
+  "keyVocabulary": [{"word": "term", "definition": "kid-friendly meaning"}],
+  "mainContent": [
+    { "sectionTitle": "Clear section title", "content": "Lesson content (1-2 short paragraphs)",
+      "activity": { "title": "Activity name", "instructions": "Step-by-step instructions", "tableHeaders": null, "tableRows": [] } }
+  ],
+  "activities": [
+    { "type": "check_x|true_false|matching|draw|cut_paste|multiple_choice",
+      "title": "Activity title", "instructions": "Student instructions",
+      "items": [ /* shape depends on type — see ACTIVITY REQUIREMENTS */ ],
+      "answerKey": [ /* correct answers, same length as items */ ] }
+  ],
+  "imagePrompt": "Description of a simple, colorful, kid-friendly illustration",
+  "summaryPoints": ["3 to 5 key takeaways"],
+  "assessmentQuestions": ["5 to 8 questions covering the lesson"],
+  "assessmentAnswerKey": ["correct answer for each assessmentQuestion, in order"]
+}
+
+Provide at least 3 mainContent sections. If a section has no table, set tableHeaders to null and tableRows to []. Keep tone warm, encouraging, and age-appropriate.`;
+}
+
+// ==================== GENERATION ====================
+async function generateModule() {
+  const apiKey = (document.getElementById('apiKeyInput').value.trim()) || appState.activeApiKey;
+  if (!apiKey) { showToast('⚠️ Please enter a Gemini API key first!', 'error'); showPanel('settings'); return; }
+
+  const model = document.getElementById('modelSelect').value || 'gemini-2.5-flash';
+  const formData = {
+    grade: document.getElementById('gradeLevel').value,
+    subject: document.getElementById('subject').value,
+    title: document.getElementById('moduleTitle').value.trim() || `${document.getElementById('subject').value} Module`,
+    quarter: document.getElementById('moduleQuarter').value.trim() || 'Q1',
+    teacher: document.getElementById('teacherName').value.trim() || 'Teacher',
+    school:  document.getElementById('schoolName').value.trim()  || 'School',
+    year:    document.getElementById('schoolYear').value.trim()  || new Date().getFullYear() + '-' + (new Date().getFullYear()+1),
+    section: document.getElementById('sectionName').value.trim() || '',
+    extra:   document.getElementById('extraInstructions').value.trim(),
+    activityCount: document.getElementById('activityCount').value,
+    activityTypes: getSelectedActivityTypes(),
+    includeAnswerKey: document.getElementById('includeAnswerKey').checked,
+  };
+
+  genAbort = new AbortController();
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  ['btnExportDocx','btnExportHtml','btnPrintPdf','btnSaveModule','btnRegen','btnNewBorder'].forEach(id=>document.getElementById(id).disabled=true);
+  showGenOverlay(true);
+  resetSteps();
+
+  try {
+    setStep(1, 'active'); setGenStep('📤 Extracting text from files…', 'Reading uploaded materials', 10);
+    let sourceText = document.getElementById('pastedText').value;
+    if (uploadedFiles.length) {
+      const extracted = await extractTextFromFiles(msg => setGenStep('📤 ' + msg, 'OCR + parsing', 15 + Math.random()*10));
+      sourceText = (sourceText + '\n\n' + extracted).trim();
+    }
+    setStep(1, 'done');
+
+    setStep(2, 'active'); setGenStep('🧠 Building lesson prompt…', `${sourceText.length} characters of source`, 30);
+    const prompt = buildGeminiPrompt(sourceText, formData);
+    setStep(2, 'done');
+
+    setStep(3, 'active'); setGenStep('🤖 Asking Gemini AI to create your module…', `Model: ${model}`, 45);
+    let raw;
+    try {
+      raw = await callGemini(prompt, apiKey, model);
+    } catch(e) {
+      if (genAbort && genAbort.signal.aborted) throw e;
+      // Fallback to 1.5-flash
+      if (model !== 'gemini-2.5-flash') {
+        setGenStep('🔁 Retrying with Gemini 1.5 Flash…', e.message, 50);
+        raw = await callGemini(prompt, apiKey, 'gemini-2.5-flash');
+      } else throw e;
+    }
+    setStep(3, 'done');
+
+    setStep(4, 'active'); setGenStep('📦 Parsing module data…', '', 75);
+    currentModuleJSON = extractJson(raw);
+    currentModuleJSON._meta = formData;
+    setStep(4, 'done');
+
+    setStep(5, 'active'); setGenStep('🎨 Building module preview…', '', 90);
+    renderPreview(currentModuleJSON);
+    appState.lastModuleData = { json: currentModuleJSON, formData, border: appState.selectedBorder, createdAt: new Date().toISOString() };
+    setStep(5, 'done');
+    setGenStep('✅ Module ready!', 'Scroll down to preview', 100);
+
+    // Enable export buttons IMMEDIATELY now we have a module
+    ['btnExportDocx','btnExportHtml','btnPrintPdf','btnSaveModule','btnRegen','btnNewBorder'].forEach(id=>{
+      const b = document.getElementById(id);
+      if (b) { b.disabled = false; b.removeAttribute('disabled'); }
+    });
+    setTimeout(() => {
+      showGenOverlay(false);
+      showToast('🎉 Module generated!', 'success');
+    }, 700);
+  } catch(e) {
+    showGenOverlay(false);
+    if (e.name === 'AbortError' || /cancel/i.test(e.message)) {
+      showToast('⏹️ Cancelled', 'error');
+    } else {
+      console.error(e);
+      showToast('❌ ' + (e.message || 'Generation failed'), 'error');
+    }
+  } finally {
+    btn.disabled = false;
+    genAbort = null;
+    if (currentModuleJSON) {
+      ['btnExportDocx','btnExportHtml','btnPrintPdf','btnSaveModule','btnRegen','btnNewBorder'].forEach(id=>{
+        const b = document.getElementById(id);
+        if (b) { b.disabled = false; b.removeAttribute('disabled'); }
+      });
+    }
+  }
+}
+function cancelGeneration(){ if (genAbort) genAbort.abort('cancelled'); }
+function showGenOverlay(show) { document.getElementById('genOverlay').classList.toggle('show', show); }
+function setGenStep(msg, sub, pct) {
+  document.getElementById('genStatus').textContent = msg;
+  if (sub !== undefined) document.getElementById('genStepText').textContent = sub;
+  if (pct !== undefined) document.getElementById('progressFill').style.width = pct + '%';
+}
+function setStep(n, state) {
+  const el = document.getElementById('step' + n);
+  if (el) el.className = 'step-dot ' + state;
+}
+function resetSteps(){ for (let i=1;i<=5;i++) setStep(i,''); document.getElementById('progressFill').style.width='0%'; }
+
+// ==================== PREVIEW ====================
+function renderPreview(data) {
+  const meta = data._meta;
+  const border = BORDERS[appState.selectedBorder];
+  const borderStyle = border.type === 'gradient'
+    ? `border:8px solid ${border.color};`
+    : `border:8px ${border.type} ${border.color};`;
+
+  const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${escapeHtml(v.definition||'')}</td></tr>`).join('');
+  const objectives = (data.learningObjectives||[]).map(o => `<li>${escapeHtml(o)}</li>`).join('');
+  const sections = (data.mainContent||[]).map(s => `
+    <div class="lesson-section">
+      <h2>${escapeHtml(s.sectionTitle||'Section')}</h2>
+      <p>${escapeHtml(s.content||'')}</p>
+      ${s.activity ? `
+        <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
+          <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${escapeHtml(s.activity.title||'Activity')}</h4>
+          <p style="font-size:12px;margin-bottom:10px">${escapeHtml(s.activity.instructions||'')}</p>
+          ${(s.activity.tableHeaders && s.activity.tableHeaders.length) ? `
+            <table class="activity-table">
+              <tr>${s.activity.tableHeaders.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr>
+              ${(s.activity.tableRows||[]).map(r=>`<tr>${(r||[]).map(c=>`<td>${escapeHtml(String(c))}</td>`).join('')}</tr>`).join('')}
+            </table>` : ''}
+        </div>` : ''}
+    </div>
+  `).join('');
+  const summary = (data.summaryPoints||[]).map(p=>`<li>${escapeHtml(p)}</li>`).join('');
+  const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p style="margin-bottom:8px"><strong>${i+1}.</strong> ${escapeHtml(q)}</p>`).join('');
+
+  document.getElementById('previewArea').innerHTML = `
+    <div class="module-preview" style="${borderStyle}">
+      <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
+        <div class="cover-school">${escapeHtml(meta.school)}</div>
+        <div class="cover-img">📚</div>
+        <div class="cover-title">${escapeHtml(meta.title)}</div>
+        <div class="cover-subject">${escapeHtml(meta.subject)} | Grade ${escapeHtml(meta.grade)}</div>
+        <div class="cover-details">
+          <div class="cover-detail"><div class="cd-label">Teacher</div><div class="cd-val">${escapeHtml(meta.teacher)}</div></div>
+          <div class="cover-detail"><div class="cd-label">Quarter/Week</div><div class="cd-val">${escapeHtml(meta.quarter)}</div></div>
+          <div class="cover-detail"><div class="cd-label">School Year</div><div class="cd-val">${escapeHtml(meta.year)}</div></div>
+          <div class="cover-detail"><div class="cd-label">Section</div><div class="cd-val">${escapeHtml(meta.section||'—')}</div></div>
+        </div>
+      </div>
+      <hr style="border:none;border-top:3px dashed #eef0f6;margin:24px 0">
+      <div class="lesson-section"><h2>🎯 Learning Objectives</h2><ul style="padding-left:20px;font-size:13px;line-height:2">${objectives}</ul></div>
+      <div style="background:linear-gradient(135deg,#fff0f5,#fff7e6);border-radius:12px;padding:16px;margin:16px 0">
+        <h3 style="font-family:'Fredoka One',sans-serif;color:var(--secondary);font-size:16px;margin-bottom:8px">🌟 Let's Get Started!</h3>
+        <p style="font-size:13px">${escapeHtml(data.motivationActivity||'')}</p>
+      </div>
+      ${vocab ? `<div class="lesson-section"><h2>📖 Key Vocabulary</h2><table class="activity-table"><tr><th>Word</th><th>Meaning</th></tr>${vocab}</table></div>` : ''}
+      <div class="lesson-section"><h2>📝 Introduction</h2><p>${escapeHtml(data.lessonIntro||'')}</p></div>
+      ${sections}
+      ${data.imagePrompt ? `
+        <div style="text-align:center;margin:20px 0;padding:20px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
+          <div style="font-size:48px">🖼️</div>
+          <p style="font-size:12px;color:var(--muted);margin-top:8px">Illustration idea: ${escapeHtml(data.imagePrompt)}</p>
+        </div>` : ''}
+      ${renderActivitiesHtml(data.activities||[])}
+      <div class="summary-box"><h3>⭐ Lesson Summary</h3><ul>${summary}</ul></div>
+      ${assessment ? `<div class="lesson-section" style="margin-top:20px"><h2>✏️ Check Your Understanding</h2>${assessment}</div>` : ''}
+      ${renderAnswerKeysHtml(data)}
+    </div>`;
+}
+
+function renderActivitiesHtml(activities) {
+  if (!activities || !activities.length) return '';
+  const blocks = activities.map((a, i) => {
+    const body = renderActivityItemsHtml(a);
+    return `<div class="lesson-section">
+      <h2>${ACT_TYPE_LABEL[a.type]||'🧩'} Activity ${i+1}: ${escapeHtml(a.title||'')}</h2>
+      <p style="font-style:italic;font-size:13px;margin-bottom:10px">${escapeHtml(a.instructions||'')}</p>
+      ${body}
+    </div>`;
+  }).join('');
+  return blocks;
+}
+function renderActivityItemsHtml(a) {
+  const items = a.items || [];
+  switch (a.type) {
+    case 'check_x':
+      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${escapeHtml(String(s))}</td></tr>`).join('')}</table>`;
+    case 'true_false':
+      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${escapeHtml(String(s))}</td></tr>`).join('')}</table>`;
+    case 'matching':
+      return `<table class="activity-table"><tr><th>Column A</th><th>Match</th><th>Column B</th></tr>${items.map((p,i)=>`<tr><td>${i+1}. ${escapeHtml(p.left||'')}</td><td style="text-align:center">____</td><td>${String.fromCharCode(65+i)}. ${escapeHtml((items[items.length-1-i]||{}).right||p.right||'')}</td></tr>`).join('')}</table>`;
+    case 'draw':
+      return `<div style="border:2px dashed #c5cae9;border-radius:10px;padding:24px;text-align:center;min-height:180px"><p style="font-size:13px;color:var(--muted)">✏️ ${escapeHtml(String(items[0]||'Draw here'))}</p></div>`;
+    case 'cut_paste':
+      const cats = [...new Set(items.map(x=>x.category).filter(Boolean))];
+      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>escapeHtml(x.label||'')).join(' • ')}</p>
+        <table class="activity-table"><tr>${cats.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr><tr>${cats.map(()=>`<td style="height:80px"></td>`).join('')}</tr></table>`;
+    case 'multiple_choice':
+      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${escapeHtml(q.question||'')}</p>${(q.choices||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${escapeHtml(String(c).replace(/^\s*[A-Da-d]\s*[\.\)\:\-]\s*/, ''))}</p>`).join('')}</div>`).join('');
+    default:
+      return `<p style="font-size:12px;color:var(--muted)">${items.map(x=>escapeHtml(typeof x==='string'?x:JSON.stringify(x))).join('<br>')}</p>`;
+  }
+}
+function renderAnswerKeysHtml(data) {
+  const include = !data._meta || data._meta.includeAnswerKey !== false;
+  if (!include) return '';
+  const activities = data.activities || [];
+  const assessKey = data.assessmentAnswerKey || [];
+  if (!activities.length && !assessKey.length) return '';
+  const actRows = activities.map((a,i)=>{
+    const key = (a.answerKey||[]).map((ans,j)=>{
+      let s;
+      if (typeof ans === 'string' || typeof ans === 'number') s = String(ans);
+      else if (ans && ans.left && ans.right) s = `${ans.left} → ${ans.right}`;
+      else if (ans && ans.label) s = `${ans.label} → ${ans.correctCategory||''}`;
+      else s = JSON.stringify(ans);
+      return `<li>${j+1}. ${escapeHtml(s)}</li>`;
+    }).join('');
+    return `<div style="margin-bottom:12px"><h4 style="color:#FF9F43;font-size:14px">${ACT_TYPE_LABEL[a.type]||''} Activity ${i+1}: ${escapeHtml(a.title||'')}</h4><ol style="padding-left:22px;font-size:13px;line-height:1.7;list-style:none">${key}</ol></div>`;
+  }).join('');
+  const assessRows = assessKey.length
+    ? `<div><h4 style="color:#FF9F43;font-size:14px">✏️ Assessment Answers</h4><ol style="padding-left:22px;font-size:13px;line-height:1.7">${assessKey.map(a=>`<li>${escapeHtml(String(a))}</li>`).join('')}</ol></div>`
+    : '';
+  return `<div class="answer-key-page" style="margin-top:24px;padding:24px;background:#fff7e6;border:3px solid #FF9F43;border-radius:14px;page-break-before:always;break-before:page">
+    <h2 style="font-family:'Fredoka One',sans-serif;color:#FF9F43;font-size:22px;margin-bottom:6px">🔑 Teacher's Answer Key</h2>
+    <p style="font-size:11px;color:#666;margin-bottom:14px;font-style:italic">For teacher use only — guide for checking students' work.</p>
+    ${actRows}${assessRows}
+  </div>`;
+}
+
+// ==================== DOCX ====================
+async function exportDocx() {
+  if (!currentModuleJSON) return showToast('No module to export!', 'error');
+  if (!window.docx || !window.docx.Document) return showToast('docx library failed to load — refresh page', 'error');
+  showToast('📄 Building .docx file…', 'success');
+
+  const data = currentModuleJSON, meta = data._meta;
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, WidthType, convertInchesToTwip } = window.docx;
+
+  const heading = (text, lvl=1) => new Paragraph({ text, heading: lvl===1?HeadingLevel.HEADING_1:HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } });
+  const para = (text, opts={}) => new Paragraph({ children: [new TextRun({ text: String(text||''), size: 24, ...opts })], spacing: { after: 100 } });
+  const table = (headers, rows) => new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({ tableHeader: true, children: headers.map(h => new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: String(h), bold: true, color: 'FFFFFF', size: 22 })] })],
+        shading: { fill: '6C63FF' }
+      })) }),
+      ...rows.map((row, ri) => new TableRow({
+        children: row.map(cell => new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: String(cell), size: 20 })] })],
+          shading: ri % 2 === 1 ? { fill: 'F0F4FF' } : undefined
+        }))
+      }))
+    ]
+  });
+
+  const children = [
+    new Paragraph({ children: [new TextRun({ text: (meta.school||'').toUpperCase(), bold: true, size: 28, color: '1E1B4B' })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: ' ', size: 24 })] }),
+    new Paragraph({ children: [new TextRun({ text: meta.title, bold: true, size: 56, color: '6C63FF' })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: `${meta.subject} | Grade ${meta.grade}`, size: 32, color: 'FF6B9D', bold: true })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: ' ', size: 24 })] }),
+    table(['Teacher','Quarter/Week','School Year','Section'], [[meta.teacher, meta.quarter, meta.year, meta.section || '—']]),
+    new Paragraph({ children: [new TextRun({ text: ' ', size: 24 })] }),
+    heading('🎯 Learning Objectives'),
+    ...(data.learningObjectives||[]).map(o => para('• ' + o)),
+    heading("🌟 Let's Get Started!"),
+    para(data.motivationActivity||''),
+    ...((data.keyVocabulary||[]).length ? [ heading('📖 Key Vocabulary'), table(['Word','Meaning'], (data.keyVocabulary||[]).map(v => [v.word||'', v.definition||''])) ] : []),
+    heading('📝 Introduction'),
+    para(data.lessonIntro||''),
+    ...(data.mainContent||[]).flatMap(s => [
+      heading(s.sectionTitle||'Section', 2),
+      para(s.content||''),
+      ...(s.activity ? [
+        new Paragraph({ children: [new TextRun({ text: `📌 Activity: ${s.activity.title||''}`, bold: true, size: 24, color: 'FF6B9D' })], spacing: { before: 120, after: 80 } }),
+        para(s.activity.instructions||''),
+        ...((s.activity.tableHeaders && s.activity.tableHeaders.length) ? [table(s.activity.tableHeaders, s.activity.tableRows||[])] : [])
+      ] : [])
+    ]),
+    heading('⭐ Lesson Summary'),
+    ...(data.summaryPoints||[]).map(p => para('✓ ' + p)),
+    ...buildActivitiesDocx(data.activities||[], { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, heading, para, table }),
+    heading('✏️ Check Your Understanding'),
+    ...(data.assessmentQuestions||[]).map((q,i) => para(`${i+1}. ${q}`)),
+    ...buildAnswerKeyDocx(data, { Paragraph, TextRun, AlignmentType, heading, para, table })
+  ];
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: { width: convertInchesToTwip(8.5), height: convertInchesToTwip(13) },
+          margin: { top: convertInchesToTwip(0.5), right: convertInchesToTwip(0.5), bottom: convertInchesToTwip(0.5), left: convertInchesToTwip(0.5) }
+        }
+      },
+      children
+    }]
+  });
+
+  try {
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${(meta.title||'Module').replace(/\s+/g,'_')}_Grade${meta.grade}.docx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    showToast('✅ Downloaded!', 'success');
+  } catch(e) { console.error(e); showToast('Failed to build .docx: ' + e.message, 'error'); }
+}
+
+function getPreviewExportHtml(title){
+  const preview = document.getElementById('previewArea');
+  if (!preview) return null;
+  // Inline all stylesheets so the saved file looks identical
+  const styles = Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('\n');
+  const links  = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>l.outerHTML).join('\n');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${(title||'Module').replace(/[<>&]/g,'')}</title>${links}${styles}
+<style>
+  body{background:#fff;margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif}
+  #previewArea{box-shadow:none!important;margin:0 auto;max-width:8.5in;background:#fff!important;border:none!important;padding:0!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  .answer-key-page{page-break-before:always!important;break-before:page!important}
+  .lesson-section,.summary-box,.activity-table{page-break-inside:avoid;break-inside:avoid}
+  @page{size:Letter;margin:0.5in}
+  @media print{body{padding:0}}
+</style>
+</head><body>${preview.outerHTML}</body></html>`;
+}
+
+function exportHtml(){
+  try{
+    if(!appState.lastModuleData) return showToast('Generate a module first','error');
+    const title = (appState.lastModuleData.formData?.title)||'Module';
+    const html = getPreviewExportHtml(title);
+    if(!html) return showToast('Nothing to export','error');
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${title.replace(/[^\w\-]+/g,'_')}.html`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    showToast('Downloaded .html (open in browser, or in Word to edit)','success');
+  }catch(e){ console.error(e); showToast('Failed to export HTML: '+e.message,'error'); }
+}
+
+function printPdf(){
+  try{
+    if(!appState.lastModuleData) return showToast('Generate a module first','error');
+    const title = (appState.lastModuleData.formData?.title)||'Module';
+    const html = getPreviewExportHtml(title);
+    if(!html) return showToast('Nothing to print','error');
+    const w = window.open('', '_blank');
+    if(!w) return showToast('Popup blocked — allow popups to print','error');
+    w.document.open(); w.document.write(html); w.document.close();
+    w.onload = ()=>{ setTimeout(()=>{ w.focus(); w.print(); }, 400); };
+  }catch(e){ console.error(e); showToast('Failed to print: '+e.message,'error'); }
+}
+
+
+
+async function saveToHistory() {
+  if (!appState.lastModuleData) return showToast('Generate a module first', 'error');
+  const f = appState.lastModuleData.formData;
+  const entry = {
+    title: f.title, subject: f.subject, grade: f.grade, quarter: f.quarter,
+    createdAt: new Date().toISOString(),
+    id: 'mod_' + Date.now(),
+    json: appState.lastModuleData.json
+  };
+  if (demoMode) {
+    appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
+    return showToast('💾 Saved!', 'success');
+  }
+  try {
+    if (!currentUser || !db) {
+      appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
+      return showToast('💾 Saved locally (sign in to sync to cloud)', 'success');
+    }
+    const ref = await db.collection('users').doc(currentUser.uid).collection('modules').add({ ...entry, createdAt: new Date() });
+    appState.modules.unshift({ ...entry, id: ref.id }); saveLocalData(); renderHistoryList(); updateDashboardStats();
+    showToast('💾 Saved to history!', 'success');
+  } catch(e) {
+    console.error('Save error:', e);
+    // Fall back to local save so user never loses work
+    try {
+      appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
+      showToast('💾 Saved locally (cloud save failed: ' + (e.message||e.code||'unknown') + ')', 'success');
+    } catch(e2) {
+      showToast('Error saving: ' + (e.message || e.code || 'unknown'), 'error');
+    }
+  }
+}
+function regenerate() { generateModule(); }
+
+// ==================== ACTIVITY/ANSWER-KEY DOCX HELPERS ====================
+function buildActivitiesDocx(activities, h) {
+  if (!activities || !activities.length) return [];
+  const { Paragraph, TextRun, heading, para, table } = h;
+  const out = [];
+  activities.forEach((a, i) => {
+    out.push(heading(`${ACT_TYPE_LABEL[a.type]||'🧩'} Activity ${i+1}: ${a.title||''}`, 2));
+    if (a.instructions) out.push(para(a.instructions, { italics: true }));
+    const items = a.items || [];
+    switch (a.type) {
+      case 'check_x':
+        out.push(table(['✓ / ✗', 'Statement'], items.map(s => ['_____', String(s)])));
+        break;
+      case 'true_false':
+        out.push(table(['True / False', 'Statement'], items.map(s => ['________', String(s)])));
+        break;
+      case 'matching': {
+        const right = items.map((p,j)=> (items[items.length-1-j]||{}).right || p.right || '');
+        out.push(table(['Column A', 'Match', 'Column B'], items.map((p,j)=>[`${j+1}. ${p.left||''}`, '____', `${String.fromCharCode(65+j)}. ${right[j]}`])));
+        break;
+      }
+      case 'draw':
+        out.push(para(`✏️ ${items[0]||'Draw here'}`));
+        out.push(para(' ')); out.push(para(' ')); out.push(para(' ')); out.push(para(' '));
+        break;
+      case 'cut_paste': {
+        out.push(para('Labels: ' + items.map(x=>x.label||'').join(' • ')));
+        const cats = [...new Set(items.map(x=>x.category).filter(Boolean))];
+        if (cats.length) out.push(table(cats, [cats.map(()=>' ')]));
+        break;
+      }
+      case 'multiple_choice':
+        items.forEach((q, j) => {
+          out.push(para(`${j+1}. ${q.question||''}`, { bold: true }));
+          (q.choices||[]).forEach((c, k) => out.push(para(`   ${String.fromCharCode(65+k)}. ${String(c).replace(/^\s*[A-Da-d]\s*[\.\)\:\-]\s*/, '')}`)));
+        });
+        break;
+      default:
+        items.forEach(x => out.push(para(typeof x === 'string' ? x : JSON.stringify(x))));
+    }
+  });
+  return out;
+}
+function buildAnswerKeyDocx(data, h) {
+  const include = data._meta && data._meta.includeAnswerKey !== false;
+  if (!include) return [];
+  const { Paragraph, TextRun, AlignmentType, heading, para } = h;
+  const activities = data.activities || [];
+  const assessKey = data.assessmentAnswerKey || [];
+  if (!activities.length && !assessKey.length) return [];
+  const out = [
+    new Paragraph({ children: [new TextRun({ text: '', break: 1 })] }),
+    new Paragraph({ children: [new TextRun({ text: '🔑 TEACHER\'S ANSWER KEY', bold: true, size: 36, color: 'FF9F43' })], alignment: AlignmentType.CENTER, spacing: { before: 400, after: 100 }, pageBreakBefore: true }),
+    new Paragraph({ children: [new TextRun({ text: 'For teacher use only — remove before printing student copies.', italics: true, size: 20, color: '8892A4' })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+  ];
+  activities.forEach((a, i) => {
+    out.push(heading(`${ACT_TYPE_LABEL[a.type]||''} Activity ${i+1}: ${a.title||''}`, 2));
+    (a.answerKey||[]).forEach((ans, j) => {
+      let s;
+      if (typeof ans === 'string' || typeof ans === 'number') s = String(ans);
+      else if (ans && ans.left && ans.right) s = `${ans.left} → ${ans.right}`;
+      else if (ans && ans.label) s = `${ans.label} → ${ans.correctCategory||''}`;
+      else s = JSON.stringify(ans);
+      out.push(para(`${j+1}. ${s}`));
+    });
+  });
+  if (assessKey.length) {
+    out.push(heading('✏️ Assessment Answers', 2));
+    assessKey.forEach((a, i) => out.push(para(`${i+1}. ${a}`)));
+  }
+  return out;
+}
+
+
+// ==================== HISTORY ====================
+function renderHistoryList() {
+  const colors = ['#FFE8F5','#EEF0FF','#E8FFF0','#FFF8E8'];
+  const icons = ['📄','📚','✏️','🔬','🌏','🎵'];
+  const full = document.getElementById('historyListFull');
+  const recent = document.getElementById('recentList');
+  const countEl = document.getElementById('historyCount');
+  if (countEl) countEl.textContent = `${appState.modules.length} module${appState.modules.length===1?'':'s'}`;
+
+  if (!appState.modules.length) {
+    full.innerHTML = '<div class="empty-state"><span class="es-icon">📭</span><h3>No saved modules</h3><p>Generate and save your first module!</p></div>';
+    recent.innerHTML = '<div class="empty-state"><span class="es-icon">🌟</span><h3>No modules yet!</h3><p>Click "Generate New Module" to get started.</p></div>';
+    return;
+  }
+  const item = (m, i) => `
+    <div class="hp-item" style="display:flex;align-items:center;gap:12px">
+      <div style="flex:1;display:flex;align-items:center;gap:12px;cursor:pointer;min-width:0" onclick="reopenModule('${m.id}')">
+        <div style="width:44px;height:44px;background:${colors[i%4]};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${icons[i%6]}</div>
+        <div style="flex:1;min-width:0">
+          <div class="hp-item-title">${escapeHtml(m.title)}</div>
+          <div class="hp-item-meta">${new Date(m.createdAt).toLocaleDateString()}</div>
+          <div class="hp-item-tags">
+            <span class="hp-tag">Grade ${escapeHtml(m.grade)}</span>
+            <span class="hp-tag">${escapeHtml(m.subject)}</span>
+            <span class="hp-tag">${escapeHtml(m.quarter||'')}</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-danger btn-sm" style="width:auto;flex-shrink:0" onclick="event.stopPropagation();deleteModule('${m.id}')" title="Delete module">🗑️</button>
+    </div>`;
+  full.innerHTML = appState.modules.map(item).join('');
+  recent.innerHTML = appState.modules.slice(0,5).map(item).join('');
+}
+async function deleteModule(id) {
+  if (!confirm('Delete this module? This cannot be undone.')) return;
+  appState.modules = appState.modules.filter(m => m.id !== id);
+  if (!demoMode) { try { await db.collection('users').doc(currentUser.uid).collection('modules').doc(id).delete(); } catch(e){} }
+  saveLocalData(); renderHistoryList(); updateDashboardStats();
+  showToast('🗑️ Module deleted', 'success');
+}
+function reopenModule(id) {
+  const m = appState.modules.find(x => x.id === id);
+  if (!m || !m.json) { showPanel('generator'); return; }
+  currentModuleJSON = m.json;
+  appState.lastModuleData = { json: m.json, formData: m.json._meta, border: appState.selectedBorder, createdAt: m.createdAt };
+  showPanel('generator');
+  renderPreview(m.json);
+  ['btnExportDocx','btnExportHtml','btnPrintPdf','btnSaveModule','btnRegen','btnNewBorder'].forEach(id=>document.getElementById(id).disabled=false);
+}
+
+// ==================== DASHBOARD ====================
+function updateDashboardStats() {
+  document.getElementById('statModules').textContent = appState.modules.length;
+  document.getElementById('statKeys').textContent = appState.apiKeys.length;
+  document.getElementById('settingsStatModules').textContent = appState.modules.length;
+  document.getElementById('settingsStatKeys').textContent = appState.apiKeys.length;
+  const today = new Date().toDateString();
+  document.getElementById('statToday').textContent = appState.modules.filter(m => new Date(m.createdAt).toDateString() === today).length;
+  const hasKey = !!(document.getElementById('apiKeyInput').value || appState.apiKeys.length);
+  const badge = document.getElementById('topbarBadge');
+  badge.textContent = hasKey ? '✅ Gemini AI Ready' : '⚠️ Add API Key';
+  badge.style.background = hasKey ? '#6BCB77' : '#FFD93D';
+  badge.style.color = hasKey ? '#fff' : '#333';
+}
+
+// ==================== NAV ====================
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.add('active');
+  const nav = document.querySelector(`.nav-item[data-panel="${name}"]`);
+  if (nav) nav.classList.add('active');
+  const titles = { dashboard:'🏠 Dashboard', generator:'✨ Generate Module', history:'📚 My Modules', summary:'📝 Generate Lesson Summary', summaryHistory:'📒 My Lesson Summaries', settings:'⚙️ Settings & API Keys', help:'❓ Help' };
+  document.getElementById('topbarTitle').textContent = titles[name] || name;
+}
+
+// ==================== TOAST ====================
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ==================== SUBJECT MGMT ====================
+function addSubject() {
+  const input = document.getElementById('newSubjectInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const sel = document.getElementById('subject');
+  const opt = document.createElement('option');
+  opt.value = val; opt.textContent = val;
+  sel.appendChild(opt); sel.value = val; input.value = '';
+  showToast('✅ Subject added!', 'success');
+}
+function removeSubject() {
+  const sel = document.getElementById('subject');
+  if (sel.options.length <= 1) return showToast('Cannot remove last subject!', 'error');
+  sel.remove(sel.selectedIndex);
+  showToast('🗑️ Subject removed!', 'success');
+}
+
+// ==================== UTIL ====================
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ==================== LESSON SUMMARY ====================
+let summaryFiles = [];
+let sumGenAbort = null;
+let currentSummary = null;
+
+function renderSumBorderGrid(){
+  const grid = document.getElementById('sumBorderGrid'); if(!grid) return;
+  grid.innerHTML = BORDERS.map((b,i)=>`
+    <div class="border-opt ${i===appState.sumSelectedBorder?'selected':''}" onclick="selectSumBorder(${i})" title="${b.name}" style="background:${b.style}">
+      ${b.emoji?`<div style="text-align:center;padding-top:14px;font-size:20px">${b.emoji}</div>`:''}
+    </div>`).join('');
+}
+function selectSumBorder(i){ appState.sumSelectedBorder=i; renderSumBorderGrid(); if(currentSummary) renderSummaryPreview(currentSummary); }
+function sumRandomBorder(){
+  let n=appState.sumSelectedBorder;
+  if(BORDERS.length>1) while(n===appState.sumSelectedBorder) n=Math.floor(Math.random()*BORDERS.length);
+  appState.sumSelectedBorder=n; renderSumBorderGrid(); if(currentSummary) renderSummaryPreview(currentSummary);
+  showToast('🎨 New border: '+BORDERS[n].name,'success');
+}
+
+function addSumSubject(){
+  const input=document.getElementById('sumNewSubjectInput'); const val=input.value.trim(); if(!val) return;
+  const sel=document.getElementById('sumSubject'); const opt=document.createElement('option');
+  opt.value=val; opt.textContent=val; sel.appendChild(opt); sel.value=val; input.value='';
+  showToast('✅ Subject added!','success');
+}
+function removeSumSubject(){
+  const sel=document.getElementById('sumSubject');
+  if(sel.options.length<=1) return showToast('Cannot remove last subject!','error');
+  sel.remove(sel.selectedIndex); showToast('🗑️ Subject removed!','success');
+}
+
+function sumDragOver(e){ e.preventDefault(); document.getElementById('sumDropzone').classList.add('drag-over'); }
+function sumDragLeave(e){ document.getElementById('sumDropzone').classList.remove('drag-over'); }
+function sumDrop(e){ e.preventDefault(); document.getElementById('sumDropzone').classList.remove('drag-over'); sumProcessFiles(e.dataTransfer.files); }
+function sumFileSelect(e){ sumProcessFiles(e.target.files); e.target.value=''; }
+function sumProcessFiles(files){
+  for(const f of files){
+    if(summaryFiles.length>=5){ showToast('⚠️ Max 5 pictures','error'); break; }
+    if(!/\.(jpe?g|png|webp)$/i.test(f.name)){ showToast(`⚠️ ${f.name} is not an image`,'error'); continue; }
+    if(f.size>10*1024*1024){ showToast(`⚠️ ${f.name} too large (max 10MB)`,'error'); continue; }
+    summaryFiles.push(f);
+  }
+  renderSumFileChips();
+}
+function renderSumFileChips(){
+  document.getElementById('sumFileChips').innerHTML = summaryFiles.map((f,i)=>
+    `<div class="file-chip">🖼️ ${escapeHtml(f.name)} <button onclick="removeSumFile(${i})" title="Remove">×</button></div>`).join('');
+}
+function removeSumFile(i){ summaryFiles.splice(i,1); renderSumFileChips(); }
+
+function fileToBase64(f){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{ const d=String(r.result||''); res(d.split(',')[1]||''); };
+    r.onerror=rej; r.readAsDataURL(f);
+  });
+}
+function mimeOf(name){
+  if(/\.png$/i.test(name)) return 'image/png';
+  if(/\.webp$/i.test(name)) return 'image/webp';
+  return 'image/jpeg';
+}
+
+async function callGeminiMultimodal(parts, apiKey, model){
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const controller=new AbortController();
+  if(sumGenAbort) sumGenAbort.signal.addEventListener('abort',()=>controller.abort());
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
+    body:JSON.stringify({contents:[{parts}], generationConfig:{temperature:0.6,topP:0.95,maxOutputTokens:8192,responseMimeType:'application/json'}})});
+  if(!res.ok){ let msg=`HTTP ${res.status}`; try{const e=await res.json(); msg=e.error?.message||msg;}catch(e){} throw new Error(msg); }
+  const data=await res.json();
+  const txt=data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+  if(!txt) throw new Error('Empty response from Gemini');
+  return txt;
+}
+
+function buildSummaryPrompt(form){
+  const sub=(form.subject||'').toLowerCase();
+  const isFilipino=/filipino|tagalog|araling\s*panlipunan|\barpan\b|\bap\b|sibika|hekasi|mtb|mother\s*tongue/.test(sub);
+  const wordsPerPage=350;
+  const total=form.pages*wordsPerPage;
+  const persona = isFilipino
+    ? `You are an expert Filipino elementary teacher writing a LESSON SUMMARY for Grade ${form.grade} students.`
+    : `You are an expert elementary teacher writing a LESSON SUMMARY in ENGLISH for Grade ${form.grade} students.`;
+  const langRule = isFilipino
+    ? `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE lesson summary — title, introduction, every section heading, every paragraph, every vocabulary word AND its definition, key points, and examples — in natural, grammatically correct FULL FILIPINO (Tagalog). Do NOT use English at all except for proper nouns or technical terms that have no Filipino equivalent. Use age-appropriate Filipino for Grade ${form.grade} learners.\n`
+    : `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE lesson summary in clear, grade-appropriate ENGLISH. Do NOT use Filipino/Tagalog words. Every heading, paragraph, vocabulary entry, key point, and example must be in English.\n`;
+  return `${persona}
+Carefully READ every picture provided (they may contain text, diagrams, drawings, or photos from a textbook). Extract the lesson content accurately from the pictures.
+${langRule}
+Build a clear, complete lesson SUMMARY that is approximately ${form.pages} page(s) long (~${total} words total).
+Subject: ${form.subject}
+Lesson Title: ${form.title || '(derive from the pictures)'}
+${form.extra?`Special instructions: ${form.extra}`:''}
+
+Return ONLY valid JSON (no markdown, no commentary, no backticks). Use this exact schema:
+{
+  "title": "Clear lesson title",
+  "introduction": "Friendly 2-4 sentence intro to the lesson",
+  "keyVocabulary": [{"word":"term","definition":"kid-friendly meaning"}],
+  "sections": [
+    { "heading": "Section heading", "content": "Detailed paragraph(s) summarizing this part of the lesson — use multiple short paragraphs separated by \\n\\n if needed" }
+  ],
+  "keyPoints": ["5 to 8 most important takeaways"],
+  "examples": ["2 to 4 concrete examples or applications"]
+}
+Provide enough sections so the total written content fits about ${form.pages} page(s). Keep tone warm, encouraging, and age-appropriate.`;
+}
+
+async function generateSummary(){
+  const apiKey=(document.getElementById('apiKeyInput').value.trim())||appState.activeApiKey;
+  if(!apiKey){ showToast('⚠️ Please enter a Gemini API key first!','error'); showPanel('settings'); return; }
+  if(!summaryFiles.length){ showToast('⚠️ Upload 1–5 pictures first','error'); return; }
+  const form={
+    grade:document.getElementById('sumGrade').value,
+    subject:document.getElementById('sumSubject').value,
+    title:document.getElementById('sumTitle').value.trim(),
+    pages:parseInt(document.getElementById('sumPages').value,10)||2,
+    extra:document.getElementById('sumExtra').value.trim()
+  };
+  const model=document.getElementById('modelSelect')?.value||'gemini-2.5-flash';
+
+  sumGenAbort=new AbortController();
+  const btn=document.getElementById('sumGenerateBtn'); btn.disabled=true;
+  ['sumBtnDocx','sumBtnHtml','sumBtnPdf','sumBtnSave','sumBtnRegen'].forEach(id=>document.getElementById(id).disabled=true);
+  sumShowOverlay(true); sumSetStep('🖼️ Reading pictures…','Encoding images',15);
+  try{
+    const parts=[{text:buildSummaryPrompt(form)}];
+    for(let i=0;i<summaryFiles.length;i++){
+      if(sumGenAbort.signal.aborted) throw new Error('Cancelled');
+      sumSetStep(`🖼️ Encoding picture ${i+1}/${summaryFiles.length}…`,summaryFiles[i].name,20+i*8);
+      const b64=await fileToBase64(summaryFiles[i]);
+      parts.push({inlineData:{mimeType:mimeOf(summaryFiles[i].name),data:b64}});
+    }
+    sumSetStep('🤖 Asking Gemini AI to read the pictures and write the summary…',`Model: ${model}`,55);
+    let raw;
+    try { raw=await callGeminiMultimodal(parts,apiKey,model); }
+    catch(e){ if(sumGenAbort.signal.aborted) throw e;
+      if(model!=='gemini-2.5-flash'){ sumSetStep('🔁 Retrying with Gemini 2.5 Flash…',e.message,65); raw=await callGeminiMultimodal(parts,apiKey,'gemini-2.5-flash'); } else throw e; }
+    sumSetStep('📦 Parsing summary…','',85);
+    const json=extractJson(raw); json._meta=form;
+    currentSummary=json;
+    appState.lastSummaryData={json,form,border:appState.sumSelectedBorder,createdAt:new Date().toISOString()};
+    sumSetStep('🎨 Rendering preview…','',95);
+    renderSummaryPreview(json);
+    sumSetStep('✅ Lesson summary ready!','',100);
+    ['sumBtnDocx','sumBtnHtml','sumBtnPdf','sumBtnSave','sumBtnRegen'].forEach(id=>{ const b=document.getElementById(id); if(b){ b.disabled=false; b.removeAttribute('disabled'); }});
+    setTimeout(()=>{ sumShowOverlay(false); showToast('🎉 Lesson summary generated!','success'); },600);
+  }catch(e){
+    sumShowOverlay(false);
+    if(e.name==='AbortError'||/cancel/i.test(e.message)) showToast('⏹️ Cancelled','error');
+    else { console.error(e); showToast('❌ '+(e.message||'Generation failed'),'error'); }
+  }finally{ btn.disabled=false; sumGenAbort=null; }
+}
+function cancelSumGeneration(){ if(sumGenAbort) sumGenAbort.abort('cancelled'); }
+function sumShowOverlay(show){ document.getElementById('sumGenOverlay').classList.toggle('show',show); }
+function sumSetStep(msg,sub,pct){
+  document.getElementById('sumGenStatus').textContent=msg;
+  if(sub!==undefined) document.getElementById('sumGenStepText').textContent=sub;
+  if(pct!==undefined) document.getElementById('sumProgressFill').style.width=pct+'%';
+}
+
+function renderSummaryPreview(data){
+  const meta=data._meta||{}; const border=BORDERS[appState.sumSelectedBorder];
+  const borderStyle = border.type==='gradient' ? `border:8px solid ${border.color};` : `border:8px ${border.type} ${border.color};`;
+  const vocab=(data.keyVocabulary||[]).map(v=>`<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${escapeHtml(v.definition||'')}</td></tr>`).join('');
+  const sections=(data.sections||[]).map(s=>{
+    const paras=String(s.content||'').split(/\n\n+/).map(p=>`<p>${escapeHtml(p)}</p>`).join('');
+    return `<div class="lesson-section"><h2>${escapeHtml(s.heading||'Section')}</h2>${paras}</div>`;
+  }).join('');
+  const points=(data.keyPoints||[]).map(p=>`<li>${escapeHtml(p)}</li>`).join('');
+  const examples=(data.examples||[]).map(e=>`<li>${escapeHtml(e)}</li>`).join('');
+  document.getElementById('sumPreviewArea').innerHTML=`
+    <div class="module-preview" style="${borderStyle}">
+      <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
+        <div class="cover-img">📝</div>
+        <div class="cover-title">${escapeHtml(data.title||meta.title||'Lesson Summary')}</div>
+        <div class="cover-subject">${escapeHtml(meta.subject||'')} | Grade ${escapeHtml(meta.grade||'')}</div>
+        <div class="cover-details">
+          <div class="cover-detail"><div class="cd-label">Pages</div><div class="cd-val">${escapeHtml(String(meta.pages||''))}</div></div>
+          <div class="cover-detail"><div class="cd-label">Type</div><div class="cd-val">Lesson Summary</div></div>
+        </div>
+      </div>
+      <hr style="border:none;border-top:3px dashed #eef0f6;margin:24px 0">
+      <div class="lesson-section"><h2>📝 Introduction</h2><p>${escapeHtml(data.introduction||'')}</p></div>
+      ${vocab?`<div class="lesson-section"><h2>📖 Key Vocabulary</h2><table class="activity-table"><tr><th>Word</th><th>Meaning</th></tr>${vocab}</table></div>`:''}
+      ${sections}
+      ${points?`<div class="summary-box"><h3>⭐ Key Points</h3><ul>${points}</ul></div>`:''}
+      ${examples?`<div class="lesson-section"><h2>💡 Examples</h2><ul style="padding-left:20px;font-size:13px;line-height:2">${examples}</ul></div>`:''}
+    </div>`;
+  // Always enable export/save buttons once a preview is rendered
+  ['sumBtnDocx','sumBtnHtml','sumBtnPdf','sumBtnSave','sumBtnRegen'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b){ b.disabled=false; b.removeAttribute('disabled'); }
+  });
+}
+
+
+function getSummaryExportHtml(title){
+  const preview=document.getElementById('sumPreviewArea'); if(!preview) return null;
+  const styles=Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('\n');
+  const links=Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>l.outerHTML).join('\n');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${(title||'Lesson Summary').replace(/[<>&]/g,'')}</title>${links}${styles}
+<style>body{background:#fff;margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif}
+#sumPreviewArea{box-shadow:none!important;margin:0 auto;max-width:8.5in;background:#fff!important;border:none!important;padding:0!important}
+*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+.lesson-section,.summary-box,.activity-table{page-break-inside:avoid;break-inside:avoid}
+@page{size:Letter;margin:0.5in}@media print{body{padding:0}}</style>
+</head><body>${preview.outerHTML}</body></html>`;
+}
+function exportSummaryHtml(){
+  try{
+    if(!currentSummary) return showToast('Generate a summary first','error');
+    const title=currentSummary.title||currentSummary._meta?.title||'Lesson Summary';
+    const html=getSummaryExportHtml(title);
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`${title.replace(/[^\w\-]+/g,'_')}.html`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    showToast('Downloaded .html','success');
+  }catch(e){ showToast('Failed to export: '+e.message,'error'); }
+}
+function printSummaryPdf(){
+  try{
+    if(!currentSummary) return showToast('Generate a summary first','error');
+    const title=currentSummary.title||currentSummary._meta?.title||'Lesson Summary';
+    const html=getSummaryExportHtml(title);
+    const w=window.open('','_blank'); if(!w) return showToast('Popup blocked','error');
+    w.document.open(); w.document.write(html); w.document.close();
+    w.onload=()=>{ setTimeout(()=>{ w.focus(); w.print(); },400); };
+  }catch(e){ showToast('Failed to print: '+e.message,'error'); }
+}
+async function exportSummaryDocx(){
+  if(!currentSummary) return showToast('Generate a summary first','error');
+  if(!window.docx||!window.docx.Document) return showToast('docx library failed to load','error');
+  const data=currentSummary, meta=data._meta||{};
+  const { Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,AlignmentType,HeadingLevel,WidthType,convertInchesToTwip } = window.docx;
+  const heading=(t,l=1)=>new Paragraph({text:t,heading:l===1?HeadingLevel.HEADING_1:HeadingLevel.HEADING_2,spacing:{before:200,after:100}});
+  const para=(t,o={})=>new Paragraph({children:[new TextRun({text:String(t||''),size:24,...o})],spacing:{after:100}});
+  const table=(headers,rows)=>new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+    new TableRow({tableHeader:true,children:headers.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:String(h),bold:true,color:'FFFFFF',size:22})]})],shading:{fill:'6C63FF'}}))}),
+    ...rows.map((row,ri)=>new TableRow({children:row.map(cell=>new TableCell({children:[new Paragraph({children:[new TextRun({text:String(cell),size:20})]})],shading:ri%2===1?{fill:'F0F4FF'}:undefined}))}))
+  ]});
+  const children=[
+    new Paragraph({children:[new TextRun({text:data.title||meta.title||'Lesson Summary',bold:true,size:48,color:'6C63FF'})],alignment:AlignmentType.CENTER}),
+    new Paragraph({children:[new TextRun({text:`${meta.subject||''} | Grade ${meta.grade||''}`,size:28,color:'FF6B9D',bold:true})],alignment:AlignmentType.CENTER}),
+    para(' '),
+    heading('📝 Introduction'), para(data.introduction||''),
+    ...((data.keyVocabulary||[]).length?[heading('📖 Key Vocabulary'),table(['Word','Meaning'],(data.keyVocabulary||[]).map(v=>[v.word||'',v.definition||'']))]:[]),
+    ...(data.sections||[]).flatMap(s=>[heading(s.heading||'Section',2), ...String(s.content||'').split(/\n\n+/).map(p=>para(p))]),
+    ...((data.keyPoints||[]).length?[heading('⭐ Key Points'),...(data.keyPoints||[]).map(p=>para('✓ '+p))]:[]),
+    ...((data.examples||[]).length?[heading('💡 Examples'),...(data.examples||[]).map(e=>para('• '+e))]:[])
+  ];
+  const doc=new Document({sections:[{properties:{page:{size:{width:convertInchesToTwip(8.5),height:convertInchesToTwip(13)},margin:{top:convertInchesToTwip(0.5),right:convertInchesToTwip(0.5),bottom:convertInchesToTwip(0.5),left:convertInchesToTwip(0.5)}}},children}]});
+  try{
+    const blob=await Packer.toBlob(doc); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url;
+    a.download=`${(data.title||meta.title||'Summary').replace(/\s+/g,'_')}_Grade${meta.grade||''}.docx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    showToast('✅ Downloaded!','success');
+  }catch(e){ showToast('Failed to build .docx: '+e.message,'error'); }
+}
+
+async function saveSummary(){
+  if(!currentSummary) return showToast('Generate a summary first','error');
+  const m=currentSummary._meta||{};
+  const entry={id:'sum_'+Date.now(),title:currentSummary.title||m.title||'Lesson Summary',subject:m.subject||'',grade:m.grade||'',pages:m.pages||1,createdAt:new Date().toISOString(),json:currentSummary};
+  if(demoMode){ appState.summaries.unshift(entry); saveLocalData(); renderSummaryHistoryList(); return showToast('💾 Saved!','success'); }
+  try{
+    if(!currentUser||!db){ appState.summaries.unshift(entry); saveLocalData(); renderSummaryHistoryList(); return showToast('💾 Saved locally','success'); }
+    const ref=await db.collection('users').doc(currentUser.uid).collection('summaries').add({...entry,createdAt:new Date()});
+    appState.summaries.unshift({...entry,id:ref.id}); saveLocalData(); renderSummaryHistoryList();
+    showToast('💾 Saved to My Lesson Summaries!','success');
+  }catch(e){
+    try{ appState.summaries.unshift(entry); saveLocalData(); renderSummaryHistoryList(); showToast('💾 Saved locally (cloud failed)','success'); }
+    catch(e2){ showToast('Error saving: '+(e.message||'unknown'),'error'); }
+  }
+}
+function renderSummaryHistoryList(){
+  const colors=['#FFE8F5','#EEF0FF','#E8FFF0','#FFF8E8'];
+  const full=document.getElementById('sumHistoryListFull'); const countEl=document.getElementById('sumHistoryCount');
+  if(!full) return;
+  if(countEl) countEl.textContent=`${appState.summaries.length} summar${appState.summaries.length===1?'y':'ies'}`;
+  if(!appState.summaries.length){
+    full.innerHTML='<div class="empty-state"><span class="es-icon">📭</span><h3>No saved lesson summaries</h3><p>Generate and save your first lesson summary!</p></div>'; return;
+  }
+  full.innerHTML=appState.summaries.map((s,i)=>`
+    <div class="hp-item" style="display:flex;align-items:center;gap:12px">
+      <div style="flex:1;display:flex;align-items:center;gap:12px;cursor:pointer;min-width:0" onclick="reopenSummary('${s.id}')">
+        <div style="width:44px;height:44px;background:${colors[i%4]};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📝</div>
+        <div style="flex:1;min-width:0">
+          <div class="hp-item-title">${escapeHtml(s.title)}</div>
+          <div class="hp-item-meta">${new Date(s.createdAt).toLocaleDateString()}</div>
+          <div class="hp-item-tags">
+            <span class="hp-tag">Grade ${escapeHtml(String(s.grade||''))}</span>
+            <span class="hp-tag">${escapeHtml(s.subject||'')}</span>
+            <span class="hp-tag">${escapeHtml(String(s.pages||''))} page${s.pages==1?'':'s'}</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-danger btn-sm" style="width:auto;flex-shrink:0" onclick="event.stopPropagation();deleteSummary('${s.id}')" title="Delete summary">🗑️</button>
+    </div>`).join('');
+}
+async function deleteSummary(id){
+  if(!confirm('Delete this lesson summary?')) return;
+  appState.summaries=appState.summaries.filter(s=>s.id!==id);
+  if(!demoMode){ try{ await db.collection('users').doc(currentUser.uid).collection('summaries').doc(id).delete(); }catch(e){} }
+  saveLocalData(); renderSummaryHistoryList(); showToast('🗑️ Deleted','success');
+}
+function reopenSummary(id){
+  const s=appState.summaries.find(x=>x.id===id); if(!s||!s.json){ showPanel('summary'); return; }
+  currentSummary=s.json;
+  appState.lastSummaryData={json:s.json,form:s.json._meta,border:appState.sumSelectedBorder,createdAt:s.createdAt};
+  showPanel('summary'); renderSummaryPreview(s.json);
+  ['sumBtnDocx','sumBtnHtml','sumBtnPdf','sumBtnSave','sumBtnRegen'].forEach(id=>document.getElementById(id).disabled=false);
+}
+
+// ==================== INIT ====================
+window.addEventListener('load', () => {
+  renderBorderGrid();
+  renderSumBorderGrid();
+  renderSelectedActChips();
+  document.querySelectorAll('.act-type').forEach(cb => cb.addEventListener('change', renderSelectedActChips));
+});
+</script>
+</body>
+</html>
