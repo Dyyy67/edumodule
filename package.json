@@ -1,0 +1,19 @@
+{
+  "name": "edumodule",
+  "version": "1.0.0",
+  "description": "AI-powered educational module generator for Grades 1-6",
+  "main": "index.js",
+  "scripts": {
+    "predeploy": "echo Deploying to GitHub Pages...",
+    "deploy": "gh-pages -d . -b gh-pages",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["education", "ai", "gemini", "module-generator"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "homepage": "https://Dyyy67.github.io/edumodule",
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
+}

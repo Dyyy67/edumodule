@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduModule Generator</title>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- docx.js -->
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<!-- Tesseract OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs" type="module"></script>
+<!-- mammoth.js for docx reading -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#6C63FF;--secondary:#FF6B9D;--accent:#FFD93D;--green:#6BCB77;--orange:#FF9F43;
+  --bg:#F0F4FF;--sidebar:#1E1B4B;--card:#fff;--text:#2D2D2D;--muted:#8892A4;
+  --radius:16px;--shadow:0 4px 24px rgba(108,99,255,.13);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}
+
+/* AUTH */
+#authScreen{position:fixed;inset:0;background:linear-gradient(135deg,#6C63FF 0%,#FF6B9D 50%,#FFD93D 100%);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column}
+.auth-box{background:#fff;border-radius:24px;padding:40px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.auth-logo{text-align:center;margin-bottom:24px}
+.auth-logo .logo-icon{font-size:52px;display:block}
+.auth-logo h1{font-family:'Fredoka One',sans-serif;font-size:28px;color:var(--primary);margin-top:8px}
+.auth-logo p{color:var(--muted);font-size:13px;margin-top:4px}
+.auth-tabs{display:flex;border:2px solid #eee;border-radius:12px;margin-bottom:24px;overflow:hidden}
+.auth-tab{flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:var(--muted);background:#fff;border:none;transition:.2s}
+.auth-tab.active{background:var(--primary);color:#fff}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px}
+.form-group input{width:100%;padding:12px 16px;border:2px solid #eee;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;outline:none;transition:.2s}
+.form-group input:focus{border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;cursor:pointer;border:none;transition:.2s;text-decoration:none}
+.btn-primary{background:var(--primary);color:#fff;width:100%}
+.btn-primary:hover{background:#5a52e0;transform:translateY(-1px)}
+.btn-google{background:#fff;border:2px solid #eee;color:var(--text);width:100%;margin-top:12px}
+.btn-google:hover{border-color:var(--primary)}
+.divider{text-align:center;color:var(--muted);font-size:12px;margin:16px 0;position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#eee}
+.divider::before{left:0}.divider::after{right:0}
+.auth-error{background:#FFE8E8;color:#c0392b;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none}
+
+/* SIDEBAR */
+.sidebar{width:240px;background:var(--sidebar);color:#fff;display:flex;flex-direction:column;padding:0;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-logo h2{font-family:'Fredoka One',sans-serif;font-size:20px;color:#fff}
+.sidebar-logo p{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}
+.sidebar-logo .logo-emoji{font-size:28px;display:block;margin-bottom:8px}
+.nav-section{padding:16px 12px 8px;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.35);font-weight:800}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 16px;margin:2px 8px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:rgba(255,255,255,.7);transition:.2s}
+.nav-item:hover,.nav-item.active{background:rgba(255,255,255,.12);color:#fff}
+.nav-item.active{background:var(--primary)}
+.nav-item .nav-icon{font-size:18px;width:22px;text-align:center}
+.sidebar-user{margin-top:auto;padding:16px;border-top:1px solid rgba(255,255,255,.1)}
+.user-info{display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+.user-name{font-size:12px;font-weight:700;color:#fff}
+.user-email{font-size:10px;color:rgba(255,255,255,.5)}
+.btn-logout{margin-top:10px;width:100%;padding:8px;background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.6);border-radius:10px;cursor:pointer;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700}
+.btn-logout:hover{background:rgba(255,100,100,.2);color:#ff8888}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:between;border-bottom:2px solid #eef0f6;gap:16px}
+.topbar h1{font-family:'Fredoka One',sans-serif;font-size:22px;color:var(--primary);flex:1}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.badge{background:var(--accent);color:#333;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px}
+.content{flex:1;overflow-y:auto;padding:24px 28px}
+
+/* PANELS */
+.panel{display:none}
+.panel.active{display:block}
+
+/* DASHBOARD */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat-card::after{content:attr(data-emoji);position:absolute;right:12px;top:8px;font-size:36px;opacity:.15}
+.stat-val{font-family:'Fredoka One',sans-serif;font-size:32px;color:var(--primary)}
+.stat-label{font-size:12px;color:var(--muted);font-weight:700;margin-top:2px}
+.quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.qa-card{background:#fff;border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;text-align:center;border:2px solid transparent}
+.qa-card:hover{border-color:var(--primary);transform:translateY(-3px)}
+.qa-card .qa-icon{font-size:40px;margin-bottom:10px;display:block}
+.qa-card h3{font-size:14px;font-weight:800;color:var(--text)}
+.qa-card p{font-size:12px;color:var(--muted);margin-top:4px}
+.history-list{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.history-header{padding:16px 20px;border-bottom:2px solid #eef0f6;display:flex;align-items:center;justify-content:space-between}
+.history-header h3{font-weight:800;font-size:15px}
+.history-item{padding:14px 20px;border-bottom:1px solid #f5f6fa;display:flex;align-items:center;gap:14px;cursor:pointer;transition:.2s}
+.history-item:hover{background:#f8f9ff}
+.history-item:last-child{border-bottom:none}
+.hist-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.hist-title{font-weight:800;font-size:13px}
+.hist-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.hist-badge{margin-left:auto;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+
+/* GENERATOR */
+.gen-layout{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+.gen-panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.gen-panel-header{padding:16px 20px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #eef0f6}
+.gen-panel-header .ph-icon{font-size:20px}
+.gen-body{padding:20px}
+.field-group{margin-bottom:16px}
+.field-group label{display:block;font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.field-group input,.field-group select,.field-group textarea{width:100%;padding:11px 14px;border:2px solid #eef0f6;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;outline:none;transition:.2s;color:var(--text)}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus{border-color:var(--primary)}
+.field-group textarea{resize:vertical;min-height:80px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.api-row{display:flex;gap:8px;align-items:flex-end}
+.api-row input{flex:1}
+.btn-sm{padding:10px 14px;border-radius:10px;font-size:12px}
+.btn-secondary{background:#eef0f6;color:var(--text)}
+.btn-secondary:hover{background:#e0e3f0}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#5ab866}
+.btn-danger{background:#FF6B9D;color:#fff}
+.btn-warning{background:var(--orange);color:#fff}
+.btn-accent{background:var(--accent);color:#333}
+
+/* DROP ZONE */
+.dropzone{border:3px dashed #c5cae9;border-radius:14px;padding:28px 20px;text-align:center;cursor:pointer;transition:.2s;background:#fafbff}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--primary);background:#f0f0ff}
+.dropzone .dz-icon{font-size:44px;display:block;margin-bottom:10px}
+.dropzone h4{font-weight:800;font-size:14px;color:var(--text)}
+.dropzone p{font-size:12px;color:var(--muted);margin-top:4px}
+.file-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.file-chip{display:flex;align-items:center;gap:6px;background:#eef0ff;color:var(--primary);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.file-chip button{background:none;border:none;cursor:pointer;color:var(--secondary);font-size:14px;line-height:1;padding:0 2px}
+
+/* BORDER PICKER */
+.border-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.border-opt{border-radius:10px;height:52px;cursor:pointer;border:3px solid transparent;transition:.2s;position:relative;overflow:hidden}
+.border-opt.selected{border-color:var(--primary)}
+.border-opt:hover{transform:scale(1.05)}
+
+/* PROGRESS */
+.progress-bar{background:#eef0f6;border-radius:20px;height:10px;overflow:hidden;margin:12px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:20px;transition:.4s;width:0%}
+.step-indicators{display:flex;gap:8px;margin-bottom:20px}
+.step-dot{flex:1;height:6px;border-radius:3px;background:#eef0f6;transition:.3s}
+.step-dot.done{background:var(--green)}
+.step-dot.active{background:var(--primary)}
+
+/* PREVIEW */
+.preview-area{background:#f8f9ff;border-radius:var(--radius);padding:20px;min-height:500px;border:2px solid #eef0f6;position:relative}
+.module-preview{background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 16px rgba(0,0,0,.08);position:relative;font-family:'Nunito',sans-serif;min-height:400px}
+.module-preview.has-border{border:8px solid transparent}
+.cover-page{text-align:center;padding:40px 20px;min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.cover-school{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:16px}
+.cover-title{font-family:'Fredoka One',sans-serif;font-size:32px;color:var(--primary);line-height:1.2;margin-bottom:12px}
+.cover-subject{font-size:16px;font-weight:800;color:var(--secondary);margin-bottom:24px}
+.cover-img{width:140px;height:140px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:64px;margin:0 auto 24px}
+.cover-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:320px;margin-top:16px}
+.cover-detail{background:#f8f9ff;border-radius:10px;padding:10px 14px;text-align:left}
+.cover-detail .cd-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800}
+.cover-detail .cd-val{font-size:13px;font-weight:800;color:var(--text);margin-top:2px}
+.lesson-section{margin-top:24px}
+.lesson-section h2{font-family:'Fredoka One',sans-serif;font-size:20px;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid var(--accent)}
+.lesson-section p{font-size:13px;line-height:1.7;color:var(--text);margin-bottom:10px}
+.activity-table{width:100%;border-collapse:collapse;margin:12px 0;border-radius:10px;overflow:hidden}
+.activity-table th{background:var(--primary);color:#fff;padding:10px 14px;text-align:left;font-size:12px;font-weight:800}
+.activity-table td{padding:9px 14px;font-size:12px;border-bottom:1px solid #eef0f6}
+.activity-table tr:nth-child(even) td{background:#f8f9ff}
+.summary-box{background:linear-gradient(135deg,#fff7e6,#fff0f5);border-radius:14px;padding:20px;margin-top:20px;border-left:5px solid var(--orange)}
+.summary-box h3{font-family:'Fredoka One',sans-serif;font-size:18px;color:var(--orange);margin-bottom:10px}
+.summary-box ul{padding-left:20px}
+.summary-box li{font-size:13px;line-height:1.8;color:var(--text)}
+
+/* GENERATING OVERLAY */
+.gen-overlay{position:absolute;inset:0;background:rgba(255,255,255,.95);display:none;align-items:center;justify-content:center;flex-direction:column;border-radius:var(--radius);z-index:10}
+.gen-overlay.show{display:flex}
+.gen-spinner{font-size:56px;animation:bounce 1s ease infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+.gen-status{font-weight:800;font-size:16px;color:var(--primary);margin-top:16px}
+.gen-step-text{font-size:13px;color:var(--muted);margin-top:6px}
+
+/* SETTINGS */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.settings-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.settings-card .sc-header{padding:16px 20px;border-bottom:2px solid #eef0f6;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
+.settings-card .sc-body{padding:20px}
+.api-key-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8f9ff;border-radius:10px;margin-bottom:8px}
+.api-key-item .ak-name{font-weight:800;font-size:13px;flex:1}
+.api-key-item .ak-val{font-size:11px;color:var(--muted);font-family:monospace}
+.api-key-item .ak-actions{display:flex;gap:4px}
+.btn-icon{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px;transition:.1s}
+.btn-icon:hover{background:#eee}
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;transform:translateY(80px);transition:.3s;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.toast.show{transform:translateY(0)}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--secondary)}
+.color-pill{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+/* HISTORY PANEL */
+.history-panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+.hp-item{padding:16px 20px;border-bottom:1px solid #f0f0f8;cursor:pointer;transition:.2s}
+.hp-item:hover{background:#f8f9ff}
+.hp-item-title{font-weight:800;font-size:14px}
+.hp-item-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.hp-item-tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.hp-tag{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#eef0ff;color:var(--primary)}
+
+/* Responsive tweaks */
+@media(max-width:900px){
+  .gen-layout{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .settings-grid{grid-template-columns:1fr}
+}
+
+.hidden{display:none!important}
+.text-center{text-align:center}
+.mt-8{margin-top:8px}
+.mt-12{margin-top:12px}
+.mt-16{margin-top:16px}
+.flex{display:flex}.gap-8{gap:8px}.gap-12{gap:12px}.items-center{align-items:center}
+.w-full{width:100%}
+.gr-1{color:var(--green)}
+.empty-state{text-align:center;padding:40px;color:var(--muted)}
+.empty-state .es-icon{font-size:52px;display:block;margin-bottom:12px}
+.empty-state h3{font-weight:800;font-size:16px;color:var(--text)}
+.empty-state p{font-size:13px;margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="logo-icon">🎓</span>
+      <h1>EduModule AI</h1>
+      <p>Educational Module Generator for Grades 1–6</p>
+    </div>
+    <div id="authError" class="auth-error"></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuth('login')">Login</button>
+      <button class="auth-tab" onclick="switchAuth('register')">Register</button>
+    </div>
+    <div id="loginForm">
+      <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="teacher@school.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••"></div>
+      <button class="btn btn-primary" onclick="doLogin()">🚀 Sign In</button>
+      <div class="divider">or</div>
+      <button class="btn btn-google" onclick="doGoogleLogin()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google</button>
+    </div>
+    <div id="registerForm" class="hidden">
+      <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="Mrs. Santos"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="regEmail" placeholder="teacher@school.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="regPass" placeholder="Min 6 characters"></div>
+      <button class="btn btn-primary" onclick="doRegister()">✨ Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="mainApp" style="display:none">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-emoji">🎓</span>
+      <h2>EduModule AI</h2>
+      <p>Grades 1–6 Generator</p>
+    </div>
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="showPanel('dashboard')"><span class="nav-icon">🏠</span> Dashboard</div>
+    <div class="nav-item" onclick="showPanel('generator')"><span class="nav-icon">✨</span> Generate Module</div>
+    <div class="nav-item" onclick="showPanel('history')"><span class="nav-icon">📚</span> My Modules</div>
+    <div class="nav-section">Tools</div>
+    <div class="nav-item" onclick="showPanel('settings')"><span class="nav-icon">⚙️</span> Settings & API Keys</div>
+    <div class="nav-item" onclick="showPanel('help')"><span class="nav-icon">❓</span> Help</div>
+    <div class="sidebar-user">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">T</div>
+        <div>
+          <div class="user-name" id="sidebarName">Teacher</div>
+          <div class="user-email" id="sidebarEmail">Loading...</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="topbarTitle">🏠 Dashboard</h1>
+      <div class="topbar-actions">
+        <span class="badge" id="topbarBadge">Gemini AI Ready</span>
+        <button class="btn btn-primary btn-sm" onclick="showPanel('generator')">+ New Module</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="stats-row">
+          <div class="stat-card" data-emoji="📄"><div class="stat-val" id="statModules">0</div><div class="stat-label">Modules Generated</div></div>
+          <div class="stat-card" data-emoji="🔑"><div class="stat-val" id="statKeys">0</div><div class="stat-label">Saved API Keys</div></div>
+          <div class="stat-card" data-emoji="📅"><div class="stat-val" id="statToday">0</div><div class="stat-label">Generated Today</div></div>
+          <div class="stat-card" data-emoji="⭐"><div class="stat-val">6</div><div class="stat-label">Grade Levels</div></div>
+        </div>
+        <div class="quick-actions">
+          <div class="qa-card" onclick="showPanel('generator')"><span class="qa-icon">✨</span><h3>Generate New Module</h3><p>Upload content & create AI module</p></div>
+          <div class="qa-card" onclick="showPanel('history')"><span class="qa-icon">📚</span><h3>View My Modules</h3><p>Browse & re-download saved modules</p></div>
+          <div class="qa-card" onclick="showPanel('settings')"><span class="qa-icon">🔑</span><h3>Manage API Keys</h3><p>Add or edit your Gemini keys</p></div>
+        </div>
+        <div class="history-list">
+          <div class="history-header"><h3>📋 Recent Modules</h3><button class="btn btn-secondary btn-sm" onclick="showPanel('history')">View All</button></div>
+          <div id="recentList"><div class="empty-state"><span class="es-icon">🌟</span><h3>No modules yet!</h3><p>Click "Generate New Module" to get started.</p></div></div>
+        </div>
+      </div>
+
+      <!-- GENERATOR -->
+      <div class="panel" id="panel-generator">
+        <div class="gen-layout">
+          <!-- LEFT: CONTROLS -->
+          <div>
+            <!-- API KEY -->
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🔑</span> Gemini AI Settings</div>
+              <div class="gen-body">
+                <div class="field-group">
+                  <label>Active API Key</label>
+                  <select id="apiKeySelect" onchange="onApiKeySelect()">
+                    <option value="">— Select saved key —</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label>API Key Value</label>
+                  <div class="api-row">
+                    <input type="password" id="apiKeyInput" placeholder="AIza...">
+                    <button class="btn btn-success btn-sm" onclick="saveApiKey()">Save</button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label>Key Nickname</label>
+                  <input type="text" id="apiKeyName" placeholder="e.g. My Gemini Key">
+                </div>
+              </div>
+            </div>
+
+            <!-- MODULE INFO -->
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">📝</span> Module Details</div>
+              <div class="gen-body">
+                <div class="field-row">
+                  <div class="field-group"><label>Grade Level</label>
+                    <select id="gradeLevel">
+                      <option value="1">Grade 1</option><option value="2">Grade 2</option>
+                      <option value="3">Grade 3</option><option value="4" selected>Grade 4</option>
+                      <option value="5">Grade 5</option><option value="6">Grade 6</option>
+                    </select>
+                  </div>
+                  <div class="field-group"><label>Subject</label>
+                    <select id="subject">
+                      <option>Math</option><option>Science</option><option>English</option>
+                      <option>Filipino</option><option>MAPEH</option><option>Araling Panlipunan</option>
+                      <option>ESP</option><option>Computer</option><option>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>Module Title</label><input type="text" id="moduleTitle" placeholder="e.g. Addition of Fractions"></div>
+                  <div class="field-group"><label>Quarter / Week</label><input type="text" id="moduleQuarter" placeholder="Q1 W3"></div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>Teacher Name</label><input type="text" id="teacherName" placeholder="Mrs. Santos"></div>
+                  <div class="field-group"><label>School Name</label><input type="text" id="schoolName" placeholder="Upper Klinan SDA School Inc."></div>
+                </div>
+                <div class="field-row">
+                  <div class="field-group"><label>School Year</label><input type="text" id="schoolYear" placeholder="2026-2027"></div>
+                  <div class="field-group"><label>Section</label><input type="text" id="sectionName" placeholder="Beryl"></div>
+                </div>
+                <div class="field-group"><label>Additional Instructions (optional)</label>
+                  <textarea id="extraInstructions" placeholder="e.g. Focus on word problems, include drawings..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- UPLOAD -->
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">📤</span> Upload Source Material</div>
+              <div class="gen-body">
+                <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+                  <span class="dz-icon">📁</span>
+                  <h4>Drop files here or click to browse</h4>
+                  <p>Supports: JPG, PNG, PDF, DOC, DOCX</p>
+                  <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.pdf,.doc,.docx" style="display:none" onchange="onFileSelect(event)">
+                </div>
+                <div class="file-chips" id="fileChips"></div>
+                <div class="field-group mt-12">
+                  <label>Or paste text directly</label>
+                  <textarea id="pastedText" placeholder="Paste book content or lesson text here..." style="min-height:100px"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- BORDER PICKER -->
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🎨</span> Page Border Style</div>
+              <div class="gen-body">
+                <div class="border-grid" id="borderGrid"></div>
+                <button class="btn btn-secondary btn-sm mt-8" onclick="randomBorder()" style="width:100%">🎲 Random Border</button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary w-full" style="font-size:16px;padding:16px" onclick="generateModule()">
+              ✨ Generate Module
+            </button>
+          </div>
+
+          <!-- RIGHT: PREVIEW -->
+          <div class="gen-panel" style="position:relative">
+            <div class="gen-panel-header"><span class="ph-icon">👀</span> Live Preview <span style="margin-left:auto;font-size:12px;color:var(--muted)">Updates after generation</span></div>
+            <div style="padding:20px">
+              <div class="step-indicators" id="stepIndicators">
+                <div class="step-dot" id="step1"></div>
+                <div class="step-dot" id="step2"></div>
+                <div class="step-dot" id="step3"></div>
+                <div class="step-dot" id="step4"></div>
+                <div class="step-dot" id="step5"></div>
+              </div>
+              <div class="preview-area" id="previewArea">
+                <div class="empty-state">
+                  <span class="es-icon">🌈</span>
+                  <h3>Module preview will appear here</h3>
+                  <p>Fill in the details on the left and click Generate!</p>
+                </div>
+                <div class="gen-overlay" id="genOverlay">
+                  <span class="gen-spinner" id="genSpinner">⚙️</span>
+                  <div class="gen-status" id="genStatus">Preparing...</div>
+                  <div class="gen-step-text" id="genStepText">Please wait</div>
+                  <div class="progress-bar" style="width:260px"><div class="progress-fill" id="progressFill"></div></div>
+                </div>
+              </div>
+              <div id="exportButtons" class="hidden mt-16 flex gap-8" style="justify-content:center">
+                <button class="btn btn-success" onclick="exportDocx()">📄 Download .docx</button>
+                <button class="btn btn-secondary" onclick="saveToHistory()">💾 Save to History</button>
+                <button class="btn btn-warning" onclick="regenerate()">🔄 Regenerate</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="panel" id="panel-history">
+        <div class="history-panel">
+          <div class="history-header"><h3>📚 My Saved Modules</h3><span id="historyCount" class="badge">0 modules</span></div>
+          <div id="historyListFull"><div class="empty-state"><span class="es-icon">📭</span><h3>No saved modules</h3><p>Generate and save your first module!</p></div></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="panel" id="panel-settings">
+        <div class="settings-grid">
+          <div class="settings-card">
+            <div class="sc-header">🔑 Saved Gemini API Keys</div>
+            <div class="sc-body">
+              <div class="field-row">
+                <div class="field-group"><label>Key Nickname</label><input type="text" id="settingsKeyName" placeholder="My Key 1"></div>
+                <div class="field-group"><label>API Key</label><input type="password" id="settingsKeyVal" placeholder="AIza..."></div>
+              </div>
+              <button class="btn btn-primary btn-sm w-full" onclick="addApiKeyFromSettings()">+ Add API Key</button>
+              <div style="margin-top:16px" id="settingsKeyList"><div class="empty-state" style="padding:20px"><span class="es-icon">🔑</span><h3>No keys saved</h3></div></div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="sc-header">👤 Account Info</div>
+            <div class="sc-body">
+              <div class="field-group"><label>Display Name</label><input type="text" id="settingsName" placeholder="Mrs. Santos"></div>
+              <div class="field-group"><label>School Name (Default)</label><input type="text" id="settingsSchool" placeholder="School name"></div>
+              <button class="btn btn-primary btn-sm w-full" onclick="saveUserPrefs()">💾 Save Preferences</button>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="sc-header">📊 Usage Stats</div>
+            <div class="sc-body">
+              <div class="stats-row" style="grid-template-columns:1fr 1fr;gap:12px">
+                <div class="stat-card" data-emoji="📄"><div class="stat-val" id="settingsStatModules">0</div><div class="stat-label">Total Modules</div></div>
+                <div class="stat-card" data-emoji="🔑"><div class="stat-val" id="settingsStatKeys">0</div><div class="stat-label">API Keys</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="sc-header">ℹ️ About</div>
+            <div class="sc-body">
+              <p style="font-size:13px;line-height:1.7;color:var(--muted)">
+                <strong style="color:var(--text)">EduModule AI</strong> v1.0<br><br>
+                An AI-powered educational module generator for Grade 1–6 teachers. Uses Google Gemini AI for content generation and exports to properly formatted .docx files.<br><br>
+                Built with: Firebase, Gemini AI, docx.js, Tesseract.js<br>
+                Page size: 8.5" × 13" (Folio/Long)<br>
+                Margins: Narrow (0.5")
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HELP -->
+      <div class="panel" id="panel-help">
+        <div class="gen-panel">
+          <div class="gen-panel-header"><span class="ph-icon">❓</span> How to Use EduModule AI</div>
+          <div class="gen-body" style="max-width:700px">
+            <div style="display:grid;gap:16px">
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--primary)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--primary)">Step 1: Get a Gemini API Key</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Go to <strong>aistudio.google.com</strong> → Get API Key → Create API Key. It's free! Paste it in Settings → API Keys.</p>
+              </div>
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--secondary)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--secondary)">Step 2: Fill Module Details</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Select the grade level, subject, and enter the module title, teacher name, and school. These appear on the cover page.</p>
+              </div>
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--green)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--green)">Step 3: Upload Source Material</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Upload book pages as images, PDF, or Word files. Or paste the text directly. The AI uses this as the lesson content.</p>
+              </div>
+              <div style="background:#f8f9ff;border-radius:12px;padding:16px;border-left:4px solid var(--orange)">
+                <h3 style="font-size:14px;font-weight:800;color:var(--orange)">Step 4: Generate & Export</h3>
+                <p style="font-size:13px;color:var(--muted);margin-top:6px">Click "Generate Module." Preview the result, then download as .docx (8.5"×13", narrow margins, ready to print).</p>
+              </div>
+            </div>
+            <div style="background:#fff7e6;border-radius:12px;padding:16px;margin-top:16px;border:2px solid var(--accent)">
+              <h3 style="font-size:14px;font-weight:800;color:var(--orange)">⚠️ Firebase Setup Required</h3>
+              <p style="font-size:13px;color:var(--muted);margin-top:6px">To enable login and data saving, replace the Firebase config in the script section with your own project credentials from <strong>console.firebase.google.com</strong>. Enable Email/Password and Google auth in Firebase console.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== FIREBASE CONFIG ====================
+// REPLACE WITH YOUR OWN FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyDwVxQ5evPij5C0wE-OOls3teDHSiN7wno",
+  authDomain: "output-snap.firebaseapp.com",
+  projectId: "output-snap",
+  storageBucket: "output-snap.firebasestorage.app",
+  messagingSenderId: "619426054351",
+  appId: "1:619426054351:web:6513e32f024fa619a4f7ba"
+};
+
+// Init Firebase (with fallback for demo mode)
+let db = null, auth = null, currentUser = null;
+let demoMode = false;
+
+try {
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+} catch(e) {
+  console.warn("Firebase not configured — running in demo mode");
+  demoMode = true;
+}
+
+// ==================== LOCAL STATE ====================
+let appState = {
+  apiKeys: [],
+  modules: [],
+  activeApiKey: '',
+  selectedBorder: 0,
+  lastModuleData: null,
+  userPrefs: {}
+};
+
+// ==================== BORDER DESIGNS ====================
+const BORDERS = [
+  { name: 'Rainbow', style: 'linear-gradient(45deg,#FF6B9D,#FFD93D,#6BCB77,#6C63FF)', type: 'gradient' },
+  { name: 'Stars', style: '#6C63FF', emoji: '⭐', type: 'dotted' },
+  { name: 'Flowers', style: '#FF6B9D', emoji: '🌸', type: 'dotted' },
+  { name: 'Clouds', style: '#6BCB77', emoji: '☁️', type: 'double' },
+  { name: 'Hearts', style: '#FF9F43', emoji: '💖', type: 'dotted' },
+  { name: 'Waves', style: 'linear-gradient(135deg,#6C63FF,#6BCB77)', type: 'gradient' },
+  { name: 'Classic Blue', style: '#3B82F6', type: 'solid' },
+  { name: 'Sunshine', style: '#FFD93D', type: 'solid' },
+];
+
+function renderBorderGrid() {
+  const grid = document.getElementById('borderGrid');
+  grid.innerHTML = BORDERS.map((b, i) => `
+    <div class="border-opt ${i===appState.selectedBorder?'selected':''}" 
+         onclick="selectBorder(${i})"
+         style="background:${b.style};border-color:${i===appState.selectedBorder?'var(--primary)':'transparent'}">
+      ${b.emoji ? `<div style="text-align:center;padding-top:14px;font-size:20px">${b.emoji}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function selectBorder(idx) {
+  appState.selectedBorder = idx;
+  renderBorderGrid();
+}
+
+function randomBorder() {
+  appState.selectedBorder = Math.floor(Math.random() * BORDERS.length);
+  renderBorderGrid();
+  showToast('🎨 Border changed!', 'success');
+}
+
+// ==================== AUTH ====================
+function switchAuth(mode) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (mode==='login'&&i===0)||(mode==='register'&&i===1)));
+  document.getElementById('loginForm').classList.toggle('hidden', mode !== 'login');
+  document.getElementById('registerForm').classList.toggle('hidden', mode !== 'register');
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  if (demoMode) { enterDemoMode(); return; }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) { showAuthError(e.message); }
+}
+
+async function doRegister() {
+  const name = document.getElementById('regName').value;
+  const email = document.getElementById('regEmail').value;
+  const pass = document.getElementById('regPass').value;
+  if (demoMode) { enterDemoMode(name); return; }
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: name });
+    await db.collection('users').doc(cred.user.uid).set({ name, email, createdAt: new Date() });
+  } catch(e) { showAuthError(e.message); }
+}
+
+async function doGoogleLogin() {
+  if (demoMode) { enterDemoMode(); return; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+  } catch(e) { showAuthError(e.message); }
+}
+
+function doLogout() {
+  if (demoMode) { document.getElementById('authScreen').style.display='flex'; document.getElementById('mainApp').style.display='none'; return; }
+  auth.signOut();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function enterDemoMode(name = 'Demo Teacher') {
+  demoMode = true;
+  currentUser = { uid: 'demo', displayName: name, email: 'demo@example.com' };
+  onUserLoggedIn(currentUser);
+}
+
+if (!demoMode && auth) {
+  auth.onAuthStateChanged(user => {
+    if (user) { currentUser = user; onUserLoggedIn(user); }
+    else { document.getElementById('authScreen').style.display='flex'; document.getElementById('mainApp').style.display='none'; }
+  });
+} else if (demoMode) {
+  // Show auth screen first
+}
+
+async function onUserLoggedIn(user) {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('sidebarName').textContent = user.displayName || 'Teacher';
+  document.getElementById('sidebarEmail').textContent = user.email || '';
+  document.getElementById('sidebarAvatar').textContent = (user.displayName||'T')[0].toUpperCase();
+  await loadUserData();
+  renderBorderGrid();
+  updateDashboardStats();
+}
+
+// ==================== DATA MANAGEMENT ====================
+async function loadUserData() {
+  if (demoMode) {
+    const saved = localStorage.getItem('edumodule_data');
+    if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; }
+    populateApiKeyDropdown(); renderHistoryList(); applyPrefs(); return;
+  }
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists) { const d = doc.data(); appState.userPrefs = d.prefs||{}; applyPrefs(); }
+    const keys = await db.collection('users').doc(currentUser.uid).collection('apiKeys').get();
+    appState.apiKeys = keys.docs.map(d => ({id: d.id, ...d.data()}));
+    const modules = await db.collection('users').doc(currentUser.uid).collection('modules').orderBy('createdAt','desc').limit(50).get();
+    appState.modules = modules.docs.map(d => ({id: d.id, ...d.data()}));
+    populateApiKeyDropdown(); renderHistoryList();
+  } catch(e) { console.error(e); }
+}
+
+function saveLocalData() {
+  localStorage.setItem('edumodule_data', JSON.stringify({ apiKeys: appState.apiKeys, modules: appState.modules, prefs: appState.userPrefs }));
+}
+
+function applyPrefs() {
+  if (appState.userPrefs.teacherName) document.getElementById('teacherName').value = appState.userPrefs.teacherName;
+  if (appState.userPrefs.schoolName) document.getElementById('schoolName').value = appState.userPrefs.schoolName;
+  if (appState.userPrefs.schoolYear) document.getElementById('schoolYear').value = appState.userPrefs.schoolYear;
+  if (appState.userPrefs.teacherName) document.getElementById('settingsName').value = appState.userPrefs.teacherName;
+  if (appState.userPrefs.schoolName) document.getElementById('settingsSchool').value = appState.userPrefs.schoolName;
+}
+
+async function saveUserPrefs() {
+  appState.userPrefs = { teacherName: document.getElementById('settingsName').value, schoolName: document.getElementById('settingsSchool').value };
+  if (demoMode) { saveLocalData(); applyPrefs(); showToast('✅ Preferences saved!', 'success'); return; }
+  try {
+    await db.collection('users').doc(currentUser.uid).set({ prefs: appState.userPrefs }, { merge: true });
+    applyPrefs(); showToast('✅ Preferences saved!', 'success');
+  } catch(e) { showToast('Error saving', 'error'); }
+}
+
+// ==================== API KEYS ====================
+function populateApiKeyDropdown() {
+  const sel = document.getElementById('apiKeySelect');
+  sel.innerHTML = '<option value="">— Select saved key —</option>' + appState.apiKeys.map(k => `<option value="${k.id}">${k.name}</option>`).join('');
+  renderSettingsKeyList();
+  updateDashboardStats();
+}
+
+function onApiKeySelect() {
+  const id = document.getElementById('apiKeySelect').value;
+  const key = appState.apiKeys.find(k => k.id === id);
+  if (key) { document.getElementById('apiKeyInput').value = key.value; appState.activeApiKey = key.value; }
+}
+
+async function saveApiKey() {
+  const name = document.getElementById('apiKeyName').value || 'Key ' + (appState.apiKeys.length + 1);
+  const value = document.getElementById('apiKeyInput').value.trim();
+  if (!value) { showToast('Enter an API key first', 'error'); return; }
+  if (demoMode) {
+    const newKey = { id: 'key_' + Date.now(), name, value };
+    appState.apiKeys.push(newKey); appState.activeApiKey = value;
+    saveLocalData(); populateApiKeyDropdown(); document.getElementById('apiKeyName').value = '';
+    showToast('🔑 Key saved!', 'success'); return;
+  }
+  try {
+    const ref = await db.collection('users').doc(currentUser.uid).collection('apiKeys').add({ name, value, createdAt: new Date() });
+    appState.apiKeys.push({ id: ref.id, name, value }); appState.activeApiKey = value;
+    populateApiKeyDropdown(); document.getElementById('apiKeyName').value = '';
+    showToast('🔑 Key saved!', 'success');
+  } catch(e) { showToast('Error saving key', 'error'); }
+}
+
+async function addApiKeyFromSettings() {
+  document.getElementById('apiKeyName').value = document.getElementById('settingsKeyName').value;
+  document.getElementById('apiKeyInput').value = document.getElementById('settingsKeyVal').value;
+  await saveApiKey();
+  document.getElementById('settingsKeyName').value = ''; document.getElementById('settingsKeyVal').value = '';
+}
+
+async function deleteApiKey(id) {
+  appState.apiKeys = appState.apiKeys.filter(k => k.id !== id);
+  if (!demoMode) { try { await db.collection('users').doc(currentUser.uid).collection('apiKeys').doc(id).delete(); } catch(e){} }
+  saveLocalData(); populateApiKeyDropdown(); showToast('🗑️ Key deleted', 'success');
+}
+
+function renderSettingsKeyList() {
+  const el = document.getElementById('settingsKeyList');
+  if (!appState.apiKeys.length) { el.innerHTML = '<div class="empty-state" style="padding:20px"><span class="es-icon">🔑</span><h3>No keys saved</h3></div>'; return; }
+  el.innerHTML = appState.apiKeys.map(k => `
+    <div class="api-key-item">
+      <div><div class="ak-name">${k.name}</div><div class="ak-val">${k.value.slice(0,8)}••••••••</div></div>
+      <div class="ak-actions">
+        <button class="btn-icon" onclick="deleteApiKey('${k.id}')" title="Delete">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ==================== FILE HANDLING ====================
+let uploadedFiles = [];
+let extractedTexts = [];
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
+function onDragLeave(e) { document.getElementById('dropzone').classList.remove('drag-over'); }
+function onDrop(e) { e.preventDefault(); document.getElementById('dropzone').classList.remove('drag-over'); processFiles(e.dataTransfer.files); }
+function onFileSelect(e) { processFiles(e.target.files); }
+
+function processFiles(files) {
+  for (const f of files) {
+    uploadedFiles.push(f);
+    renderFileChips();
+  }
+}
+
+function renderFileChips() {
+  const chips = document.getElementById('fileChips');
+  chips.innerHTML = uploadedFiles.map((f, i) => `
+    <div class="file-chip">
+      ${fileIcon(f.name)} ${f.name}
+      <button onclick="removeFile(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function fileIcon(name) {
+  if (/\.(jpg|jpeg|png)$/i.test(name)) return '🖼️';
+  if (/\.pdf$/i.test(name)) return '📄';
+  if (/\.docx?$/i.test(name)) return '📝';
+  return '📁';
+}
+
+function removeFile(i) { uploadedFiles.splice(i, 1); renderFileChips(); }
+
+async function extractTextFromFiles() {
+  const texts = [];
+  for (const f of uploadedFiles) {
+    try {
+      if (/\.(jpg|jpeg|png)$/i.test(f.name)) {
+        setGenStep('🔍 Running OCR on image...', 40);
+        const result = await Tesseract.recognize(f, 'eng', { logger: () => {} });
+        texts.push(result.data.text);
+      } else if (/\.docx?$/i.test(f.name)) {
+        setGenStep('📝 Extracting from Word doc...', 40);
+        const buf = await f.arrayBuffer();
+        const r = await mammoth.extractRawText({ arrayBuffer: buf });
+        texts.push(r.value);
+      } else if (/\.pdf$/i.test(f.name)) {
+        setGenStep('📄 Extracting from PDF...', 40);
+        texts.push(await extractPdfText(f));
+      }
+    } catch(e) { console.error('Extraction error:', e); }
+  }
+  return texts.join('\n\n');
+}
+
+async function extractPdfText(file) {
+  return new Promise(async (resolve) => {
+    try {
+      const arrayBuf = await file.arrayBuffer();
+      const pdfjsLib = window['pdfjs-dist/build/pdf'] || (await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs'));
+      if (pdfjsLib.GlobalWorkerOptions) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+      let full = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const tc = await page.getTextContent();
+        full += tc.items.map(s => s.str).join(' ') + '\n';
+      }
+      resolve(full);
+    } catch(e) { resolve('[Could not extract PDF text]'); }
+  });
+}
+
+// ==================== GEMINI AI ====================
+async function callGemini(prompt, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 4000 } })
+  });
+  if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || 'Gemini API error'); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+function buildGeminiPrompt(sourceText, formData) {
+  const gradeDescriptions = {
+    1: 'very simple words, short sentences, basic concepts, lots of encouragement',
+    2: 'simple vocabulary, short paragraphs, concrete examples',
+    3: 'moderate vocabulary, clear explanations, relatable examples',
+    4: 'standard school vocabulary, organized paragraphs, practical examples',
+    5: 'more complex vocabulary, detailed explanations, analytical thinking',
+    6: 'advanced vocabulary, comprehensive content, critical thinking skills'
+  };
+  return `You are an expert Filipino elementary school curriculum writer creating a learning module for Grade ${formData.grade} students.
+Use: ${gradeDescriptions[formData.grade]}
+
+MODULE INFO:
+- Title: ${formData.title}
+- Subject: ${formData.subject}  
+- Grade: ${formData.grade}
+- Quarter/Week: ${formData.quarter}
+${formData.extra ? `- Special instructions: ${formData.extra}` : ''}
+
+SOURCE CONTENT:
+${sourceText || 'Generate appropriate content for the subject and grade level.'}
+
+Generate a complete learning module in JSON format ONLY (no markdown, no backticks):
+{
+  "learningObjectives": ["obj1", "obj2", "obj3"],
+  "motivationActivity": "An engaging opening activity or question for Grade ${formData.grade} students",
+  "lessonIntro": "Introduction paragraph appropriate for Grade ${formData.grade}",
+  "keyVocabulary": [{"word": "word1", "definition": "kid-friendly definition"}],
+  "mainContent": [
+    {
+      "sectionTitle": "Section Title",
+      "content": "Lesson content paragraph...",
+      "activity": {
+        "title": "Activity Name",
+        "instructions": "Step by step instructions",
+        "tableHeaders": ["Column 1", "Column 2", "Column 3"],
+        "tableRows": [["row1col1","row1col2","row1col3"],["row2col1","row2col2","row2col3"]]
+      }
+    }
+  ],
+  "imagePrompt": "Description of a simple, colorful, kid-friendly illustration for this lesson",
+  "summaryPoints": ["key takeaway 1", "key takeaway 2", "key takeaway 3"],
+  "assessmentQuestions": ["question 1?", "question 2?", "question 3?"]
+}`;
+}
+
+// ==================== GENERATION ====================
+let currentModuleJSON = null;
+
+async function generateModule() {
+  const apiKey = document.getElementById('apiKeyInput').value.trim() || appState.activeApiKey;
+  if (!apiKey) { showToast('⚠️ Please enter a Gemini API key first!', 'error'); showPanel('settings'); return; }
+
+  const formData = {
+    grade: document.getElementById('gradeLevel').value,
+    subject: document.getElementById('subject').value,
+    title: document.getElementById('moduleTitle').value || `${document.getElementById('subject').value} Module`,
+    quarter: document.getElementById('moduleQuarter').value || 'Q1',
+    teacher: document.getElementById('teacherName').value || 'Teacher',
+    school: document.getElementById('schoolName').value || 'School',
+    year: document.getElementById('schoolYear').value || '2026-2027',
+    section: document.getElementById('sectionName').value || '',
+    extra: document.getElementById('extraInstructions').value,
+  };
+
+  showGenOverlay(true);
+  setGenStep('📤 Extracting text from files...', 10);
+  markStep(1, 'active');
+
+  let sourceText = document.getElementById('pastedText').value;
+  if (uploadedFiles.length) {
+    const extracted = await extractTextFromFiles();
+    sourceText = (sourceText + '\n\n' + extracted).trim();
+  }
+
+  setGenStep('🤖 Asking Gemini AI to create your module...', 30);
+  markStep(2, 'done'); markStep(3, 'active');
+
+  try {
+    const prompt = buildGeminiPrompt(sourceText, formData);
+    const raw = await callGemini(prompt, apiKey);
+    let cleaned = raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    currentModuleJSON = JSON.parse(cleaned);
+    currentModuleJSON._meta = formData;
+
+    setGenStep('🎨 Building module preview...', 70);
+    markStep(3, 'done'); markStep(4, 'active');
+
+    renderPreview(currentModuleJSON);
+
+    setGenStep('✅ Module ready!', 100);
+    markStep(4, 'done'); markStep(5, 'done');
+
+    setTimeout(() => {
+      showGenOverlay(false);
+      document.getElementById('exportButtons').classList.remove('hidden');
+      showToast('🎉 Module generated!', 'success');
+      appState.lastModuleData = { json: currentModuleJSON, formData, border: appState.selectedBorder, createdAt: new Date() };
+    }, 800);
+
+  } catch(e) {
+    showGenOverlay(false);
+    showToast('❌ Error: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+function showGenOverlay(show) {
+  document.getElementById('genOverlay').classList.toggle('show', show);
+}
+
+function setGenStep(msg, pct) {
+  document.getElementById('genStatus').textContent = msg;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function markStep(n, state) {
+  const el = document.getElementById('step' + n);
+  if (!el) return;
+  el.className = 'step-dot ' + state;
+}
+
+// ==================== PREVIEW RENDERER ====================
+function renderPreview(data) {
+  const meta = data._meta;
+  const border = BORDERS[appState.selectedBorder];
+  const borderStyle = border.type === 'gradient'
+    ? `border: 8px solid transparent; background-clip: padding-box; outline: 8px solid; outline-color: transparent; box-shadow: 0 0 0 8px transparent; background: #fff;`
+    : `border: 8px ${border.type} ${border.style};`;
+
+  const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${v.word}</td><td>${v.definition}</td></tr>`).join('');
+  const objectives = (data.learningObjectives||[]).map(o => `<li>${o}</li>`).join('');
+  const sections = (data.mainContent||[]).map(s => `
+    <div class="lesson-section">
+      <h2>${s.sectionTitle}</h2>
+      <p>${s.content}</p>
+      ${s.activity ? `
+        <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
+          <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${s.activity.title}</h4>
+          <p style="font-size:12px;margin-bottom:10px">${s.activity.instructions}</p>
+          ${s.activity.tableHeaders ? `
+            <table class="activity-table">
+              <tr>${s.activity.tableHeaders.map(h=>`<th>${h}</th>`).join('')}</tr>
+              ${(s.activity.tableRows||[]).map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}
+            </table>
+          ` : ''}
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  const summary = (data.summaryPoints||[]).map(p=>`<li>${p}</li>`).join('');
+  const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p style="margin-bottom:8px"><strong>${i+1}.</strong> ${q}</p>`).join('');
+
+  document.getElementById('previewArea').innerHTML = `
+    <div class="module-preview" style="${borderStyle}">
+      <!-- COVER PAGE -->
+      <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
+        <div class="cover-school">${meta.school}</div>
+        <div class="cover-img">📚</div>
+        <div class="cover-title">${meta.title}</div>
+        <div class="cover-subject">${meta.subject} | Grade ${meta.grade}</div>
+        <div class="cover-details">
+          <div class="cover-detail"><div class="cd-label">Teacher</div><div class="cd-val">${meta.teacher}</div></div>
+          <div class="cover-detail"><div class="cd-label">Quarter/Week</div><div class="cd-val">${meta.quarter}</div></div>
+          <div class="cover-detail"><div class="cd-label">School Year</div><div class="cd-val">${meta.year}</div></div>
+          <div class="cover-detail"><div class="cd-label">Section</div><div class="cd-val">${meta.section||'—'}</div></div>
+        </div>
+      </div>
+      <hr style="border:none;border-top:3px dashed #eef0f6;margin:24px 0">
+      <!-- OBJECTIVES -->
+      <div class="lesson-section">
+        <h2>🎯 Learning Objectives</h2>
+        <ul style="padding-left:20px;font-size:13px;line-height:2">${objectives}</ul>
+      </div>
+      <!-- MOTIVATION -->
+      <div style="background:linear-gradient(135deg,#fff0f5,#fff7e6);border-radius:12px;padding:16px;margin:16px 0">
+        <h3 style="font-family:'Fredoka One',sans-serif;color:var(--secondary);font-size:16px;margin-bottom:8px">🌟 Let's Get Started!</h3>
+        <p style="font-size:13px">${data.motivationActivity||''}</p>
+      </div>
+      <!-- VOCABULARY -->
+      ${vocab ? `<div class="lesson-section"><h2>📖 Key Vocabulary</h2><table class="activity-table"><tr><th>Word</th><th>Meaning</th></tr>${vocab}</table></div>` : ''}
+      <!-- LESSON INTRO -->
+      <div class="lesson-section"><h2>📝 Introduction</h2><p>${data.lessonIntro||''}</p></div>
+      <!-- MAIN CONTENT -->
+      ${sections}
+      <!-- IMAGE PLACEHOLDER -->
+      ${data.imagePrompt ? `
+        <div style="text-align:center;margin:20px 0;padding:20px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
+          <div style="font-size:48px">🖼️</div>
+          <p style="font-size:12px;color:var(--muted);margin-top:8px">Illustration: ${data.imagePrompt}</p>
+          <p style="font-size:11px;color:#bbb;margin-top:4px">(Add a kid-friendly image here)</p>
+        </div>
+      ` : ''}
+      <!-- SUMMARY -->
+      <div class="summary-box">
+        <h3>⭐ Lesson Summary</h3>
+        <ul>${summary}</ul>
+      </div>
+      <!-- ASSESSMENT -->
+      ${assessment ? `
+        <div class="lesson-section" style="margin-top:20px">
+          <h2>✏️ Check Your Understanding</h2>
+          ${assessment}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ==================== DOCX EXPORT ====================
+async function exportDocx() {
+  if (!currentModuleJSON) { showToast('No module to export!', 'error'); return; }
+  showToast('📄 Building .docx file...', 'success');
+
+  const data = currentModuleJSON;
+  const meta = data._meta;
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, PageOrientation, WidthType, BorderStyle, convertInchesToTwip } = docx;
+
+  const makeHeading = (text, level = 1) => new Paragraph({
+    text,
+    heading: level === 1 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
+    spacing: { before: 200, after: 100 }
+  });
+
+  const makePara = (text, opts = {}) => new Paragraph({
+    children: [new TextRun({ text, size: 24, ...opts })],
+    spacing: { after: 100 }
+  });
+
+  const makeTable = (headers, rows) => new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        tableHeader: true,
+        children: headers.map(h => new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 22 })] })],
+          shading: { fill: '6C63FF' }
+        }))
+      }),
+      ...rows.map((row, ri) => new TableRow({
+        children: row.map(cell => new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: String(cell), size: 20 })] })],
+          shading: ri % 2 === 1 ? { fill: 'F0F4FF' } : {}
+        }))
+      }))
+    ]
+  });
+
+  const children = [
+    // COVER
+    new Paragraph({ children: [new TextRun({ text: meta.school.toUpperCase(), bold: true, size: 28, color: '1E1B4B' })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: '\n', size: 24 })] }),
+    new Paragraph({ children: [new TextRun({ text: meta.title, bold: true, size: 56, color: '6C63FF' })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: `${meta.subject} | Grade ${meta.grade}`, size: 32, color: 'FF6B9D', bold: true })], alignment: AlignmentType.CENTER }),
+    new Paragraph({ children: [new TextRun({ text: '\n\n', size: 24 })] }),
+    makeTable(
+      ['Teacher', 'Quarter/Week', 'School Year', 'Section'],
+      [[meta.teacher, meta.quarter, meta.year, meta.section || '—']]
+    ),
+    new Paragraph({ children: [new TextRun({ text: '\n\n', size: 24 })] }),
+    // OBJECTIVES
+    makeHeading('🎯 Learning Objectives'),
+    ...(data.learningObjectives||[]).map(o => new Paragraph({ children: [new TextRun({ text: '• ' + o, size: 24 })], spacing: { after: 80 } })),
+    // MOTIVATION
+    makeHeading('🌟 Let\'s Get Started!'),
+    makePara(data.motivationActivity||''),
+    // VOCABULARY
+    ...(data.keyVocabulary?.length ? [
+      makeHeading('📖 Key Vocabulary'),
+      makeTable(['Word', 'Meaning'], (data.keyVocabulary||[]).map(v => [v.word, v.definition]))
+    ] : []),
+    // INTRO
+    makeHeading('📝 Introduction'),
+    makePara(data.lessonIntro||''),
+    // MAIN CONTENT
+    ...(data.mainContent||[]).flatMap(s => [
+      makeHeading(s.sectionTitle, 2),
+      makePara(s.content),
+      ...(s.activity ? [
+        new Paragraph({ children: [new TextRun({ text: `📌 Activity: ${s.activity.title}`, bold: true, size: 24, color: 'FF6B9D' })], spacing: { before: 120, after: 80 } }),
+        makePara(s.activity.instructions),
+        ...(s.activity.tableHeaders ? [makeTable(s.activity.tableHeaders, s.activity.tableRows||[])] : [])
+      ] : [])
+    ]),
+    // SUMMARY
+    makeHeading('⭐ Lesson Summary'),
+    ...(data.summaryPoints||[]).map(p => new Paragraph({ children: [new TextRun({ text: '✓ ' + p, size: 24 })], spacing: { after: 80 } })),
+    // ASSESSMENT
+    makeHeading('✏️ Check Your Understanding'),
+    ...(data.assessmentQuestions||[]).map((q, i) => makePara(`${i + 1}. ${q}`))
+  ];
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: { width: convertInchesToTwip(8.5), height: convertInchesToTwip(13) },
+          margin: { top: convertInchesToTwip(0.5), right: convertInchesToTwip(0.5), bottom: convertInchesToTwip(0.5), left: convertInchesToTwip(0.5) }
+        }
+      },
+      children
+    }]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `${meta.title.replace(/\s+/g,'_')}_Grade${meta.grade}.docx`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('✅ Downloaded!', 'success');
+}
+
+async function saveToHistory() {
+  if (!appState.lastModuleData) return;
+  const entry = {
+    title: appState.lastModuleData.formData.title,
+    subject: appState.lastModuleData.formData.subject,
+    grade: appState.lastModuleData.formData.grade,
+    quarter: appState.lastModuleData.formData.quarter,
+    createdAt: new Date().toISOString(),
+    id: 'mod_' + Date.now()
+  };
+  if (demoMode) {
+    appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
+    showToast('💾 Saved!', 'success'); return;
+  }
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('modules').add({ ...entry, createdAt: new Date() });
+    appState.modules.unshift(entry); renderHistoryList(); updateDashboardStats();
+    showToast('💾 Saved to history!', 'success');
+  } catch(e) { showToast('Error saving', 'error'); }
+}
+
+function regenerate() { generateModule(); }
+
+// ==================== HISTORY LIST ====================
+function renderHistoryList() {
+  const colors = ['#FFE8F5','#EEF0FF','#E8FFF0','#FFF8E8'];
+  const icons = ['📄','📚','✏️','🔬','🌏','🎵'];
+  const full = document.getElementById('historyListFull');
+  const recent = document.getElementById('recentList');
+
+  if (!appState.modules.length) {
+    full.innerHTML = '<div class="empty-state"><span class="es-icon">📭</span><h3>No saved modules</h3><p>Generate and save your first module!</p></div>';
+    recent.innerHTML = '<div class="empty-state"><span class="es-icon">🌟</span><h3>No modules yet!</h3><p>Click "Generate New Module" to get started.</p></div>';
+    return;
+  }
+
+  const itemHTML = (m, i) => `
+    <div class="hp-item" onclick="showPanel('generator')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;background:${colors[i%4]};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px">${icons[i%6]}</div>
+        <div style="flex:1">
+          <div class="hp-item-title">${m.title}</div>
+          <div class="hp-item-meta">${new Date(m.createdAt).toLocaleDateString()}</div>
+          <div class="hp-item-tags">
+            <span class="hp-tag">Grade ${m.grade}</span>
+            <span class="hp-tag">${m.subject}</span>
+            <span class="hp-tag">${m.quarter}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  full.innerHTML = appState.modules.map(itemHTML).join('');
+  recent.innerHTML = appState.modules.slice(0,5).map(itemHTML).join('');
+}
+
+// ==================== DASHBOARD STATS ====================
+function updateDashboardStats() {
+  document.getElementById('statModules').textContent = appState.modules.length;
+  document.getElementById('statKeys').textContent = appState.apiKeys.length;
+  document.getElementById('settingsStatModules').textContent = appState.modules.length;
+  document.getElementById('settingsStatKeys').textContent = appState.apiKeys.length;
+  const today = new Date().toDateString();
+  const todayCount = appState.modules.filter(m => new Date(m.createdAt).toDateString() === today).length;
+  document.getElementById('statToday').textContent = todayCount;
+  const hasKey = !!document.getElementById('apiKeyInput').value || appState.apiKeys.length > 0;
+  document.getElementById('topbarBadge').textContent = hasKey ? '✅ Gemini AI Ready' : '⚠️ Add API Key';
+  document.getElementById('topbarBadge').style.background = hasKey ? '#6BCB77' : '#FFD93D';
+}
+
+// ==================== NAVIGATION ====================
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => { if (n.textContent.toLowerCase().includes(name === 'generator' ? 'generate' : name === 'dashboard' ? 'dashboard' : name === 'history' ? 'modules' : name)) n.classList.add('active'); });
+  const titles = { dashboard: '🏠 Dashboard', generator: '✨ Generate Module', history: '📚 My Modules', settings: '⚙️ Settings & API Keys', help: '❓ Help' };
+  document.getElementById('topbarTitle').textContent = titles[name] || name;
+}
+
+// ==================== TOAST ====================
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ==================== INIT ====================
+window.addEventListener('load', () => {
+  renderBorderGrid();
+  if (firebaseConfig.apiKey === 'YOUR_FIREBASE_API_KEY') {
+    // Show demo mode hint on auth screen
+    console.log('Running in demo mode — configure Firebase to enable full features');
+  }
+});
+
+// Expose docx global
+window.docx = window.docx || {};
+</script>
+</body>
+</html>
