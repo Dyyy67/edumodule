@@ -1157,7 +1157,7 @@ async function callGemini(prompt, apiKey, model) {
       generationConfig: {
         temperature: 0.7,
         topP: 0.95,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 32768,
         responseMimeType: 'application/json'
       }
     })
@@ -1214,7 +1214,30 @@ function extractJson(raw) {
   // find first { and last }
   const a = s.indexOf('{'), b = s.lastIndexOf('}');
   if (a !== -1 && b !== -1 && b > a) s = s.slice(a, b + 1);
-  return JSON.parse(s);
+  // strip BOM + non-printable control chars (except \n \r \t) that break JSON.parse
+  s = s.replace(/^\uFEFF/, '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  try { return JSON.parse(s); } catch(e1) {
+    // Attempt 2: remove trailing commas before } or ]
+    let s2 = s.replace(/,(\s*[}\]])/g, '$1');
+    try { return JSON.parse(s2); } catch(e2) {
+      // Attempt 3: escape stray newlines inside string literals
+      let s3 = s2.replace(/"((?:\\.|[^"\\])*)"/g, (m, inner) => '"' + inner.replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t') + '"');
+      try { return JSON.parse(s3); } catch(e3) {
+        // Attempt 4: if response was truncated, close open structures
+        let s4 = s3;
+        const opens = (s4.match(/\{/g)||[]).length, closes = (s4.match(/\}/g)||[]).length;
+        const opensA = (s4.match(/\[/g)||[]).length, closesA = (s4.match(/\]/g)||[]).length;
+        // Trim to last complete sibling
+        const lastComma = Math.max(s4.lastIndexOf(','), s4.lastIndexOf('}'), s4.lastIndexOf(']'));
+        if (lastComma > 0) s4 = s4.slice(0, lastComma).replace(/,\s*$/, '');
+        s4 += ']'.repeat(Math.max(0, opensA - closesA));
+        s4 += '}'.repeat(Math.max(0, opens - closes));
+        try { return JSON.parse(s4); } catch(e4) {
+          throw new Error('AI returned malformed JSON. Please try again. (' + e1.message + ')');
+        }
+      }
+    }
+  }
 }
 
 function getSelectedActivityTypes() {
@@ -1425,6 +1448,26 @@ function setStep(n, state) {
 function resetSteps(){ for (let i=1;i<=5;i++) setStep(i,''); document.getElementById('progressFill').style.width='0%'; }
 
 // ==================== PREVIEW ====================
+function buildFontOverrideStyle(scopeId, family, size){
+  const base = parseInt(size,10) || 13;
+  // Scale headings/cover proportionally so EVERY text element uses chosen typography
+  const h1 = Math.round(base * 2.2);
+  const h2 = Math.round(base * 1.55);
+  const h3 = Math.round(base * 1.25);
+  const small = Math.max(10, base - 1);
+  return `<style>
+    #${scopeId}, #${scopeId} * { font-family: ${family} !important; }
+    #${scopeId},
+    #${scopeId} p, #${scopeId} li, #${scopeId} td, #${scopeId} th,
+    #${scopeId} span, #${scopeId} div, #${scopeId} strong, #${scopeId} em,
+    #${scopeId} a, #${scopeId} label { font-size: ${base}px !important; }
+    #${scopeId} h1, #${scopeId} .cover-title { font-size: ${h1}px !important; }
+    #${scopeId} h2 { font-size: ${h2}px !important; }
+    #${scopeId} h3, #${scopeId} h4 { font-size: ${h3}px !important; }
+    #${scopeId} .cd-label, #${scopeId} small { font-size: ${small}px !important; }
+  </style>`;
+}
+
 function renderPreview(data) {
   const meta = data._meta;
   const border = BORDERS[appState.selectedBorder];
@@ -1434,6 +1477,7 @@ function renderPreview(data) {
       ? `border:8px solid ${border.color};`
       : `border:8px ${border.type} ${border.color};`);
   const fontStyle = `font-family:${appState.fontFamily};font-size:${appState.fontSize}px;`;
+  const fontOverride = buildFontOverrideStyle('modulePreviewScope', appState.fontFamily, appState.fontSize);
 
   const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const objectives = (data.learningObjectives||[]).map(o => `<li>${formatRich(o)}</li>`).join('');
@@ -1463,7 +1507,9 @@ function renderPreview(data) {
     : '';
 
   document.getElementById('previewArea').innerHTML = `
-    <div class="module-preview" style="${borderStyle}${fontStyle}">
+    ${fontOverride}
+    <div id="modulePreviewScope" class="module-preview" style="${borderStyle}${fontStyle}">
+
       <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
         <div class="cover-school">${escapeHtml(meta.school)}</div>
         <div class="cover-img">📚</div>
@@ -2066,7 +2112,7 @@ async function callGeminiMultimodal(parts, apiKey, model){
   const controller=new AbortController();
   if(sumGenAbort) sumGenAbort.signal.addEventListener('abort',()=>controller.abort());
   const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
-    body:JSON.stringify({contents:[{parts}], generationConfig:{temperature:0.6,topP:0.95,maxOutputTokens:8192,responseMimeType:'application/json'}})});
+    body:JSON.stringify({contents:[{parts}], generationConfig:{temperature:0.6,topP:0.95,maxOutputTokens:32768,responseMimeType:'application/json'}})});
   if(!res.ok){ let msg=`HTTP ${res.status}`; try{const e=await res.json(); msg=e.error?.message||msg;}catch(e){} throw new Error(msg); }
   const data=await res.json();
   const txt=data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
@@ -2184,6 +2230,7 @@ function renderSummaryPreview(data){
     ? 'border:none;'
     : (border.type==='gradient' ? `border:8px solid ${border.color};` : `border:8px ${border.type} ${border.color};`);
   const fontStyle = `font-family:${appState.sumFontFamily};font-size:${appState.sumFontSize}px;`;
+  const fontOverride = buildFontOverrideStyle('summaryPreviewScope', appState.sumFontFamily, appState.sumFontSize);
   const vocab=(data.keyVocabulary||[]).map(v=>`<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const sections=(data.sections||[]).map(s=>{
     return `<div class="lesson-section"><h2>${escapeHtml(s.heading||'Section')}</h2>${renderRich(s.content)}</div>`;
@@ -2191,7 +2238,9 @@ function renderSummaryPreview(data){
   const points=(data.keyPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
   const examples=(data.examples||[]).map(e=>`<li>${formatRich(e)}</li>`).join('');
   document.getElementById('sumPreviewArea').innerHTML=`
-    <div class="module-preview" style="${borderStyle}${fontStyle}">
+    ${fontOverride}
+    <div id="summaryPreviewScope" class="module-preview" style="${borderStyle}${fontStyle}">
+
       <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
         <div class="cover-img">📝</div>
         <div class="cover-title">${escapeHtml(data.title||meta.title||'Lesson Summary')}</div>
