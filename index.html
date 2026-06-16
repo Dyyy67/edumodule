@@ -541,6 +541,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
                     </select>
                   </div>
                 </div>
+                <div class="field-group"><label>Paste Lesson Text (Word / book text — optional)</label>
+                  <textarea id="sumPastedText" placeholder="Paste any lesson text, Word content, or notes here. Everything you paste will be included in the summary." style="min-height:110px"></textarea>
+                </div>
                 <div class="field-group"><label>Additional Instructions (optional)</label>
                   <textarea id="sumExtra" placeholder="e.g. Focus on definitions, include examples..."></textarea>
                 </div>
@@ -548,13 +551,13 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
             </div>
 
             <div class="gen-panel" style="margin-bottom:16px">
-              <div class="gen-panel-header"><span class="ph-icon">🖼️</span> Upload Pictures (1–5)</div>
+              <div class="gen-panel-header"><span class="ph-icon">🖼️</span> Upload Pictures or Documents (1–5)</div>
               <div class="gen-body">
                 <div class="dropzone" id="sumDropzone" onclick="document.getElementById('sumFileInput').click()" ondragover="sumDragOver(event)" ondragleave="sumDragLeave(event)" ondrop="sumDrop(event)">
                   <span class="dz-icon">🖼️</span>
-                  <h4>Drop 1–5 pictures or click to browse</h4>
-                  <p>AI will read the pictures accurately (JPG, PNG, WEBP)</p>
-                  <input type="file" id="sumFileInput" multiple accept=".jpg,.jpeg,.png,.webp" style="display:none" onchange="sumFileSelect(event)">
+                  <h4>Drop pictures, Word, or PDF — or click to browse</h4>
+                  <p>AI reads images, Word (.docx) &amp; PDF and includes ALL of it (JPG, PNG, WEBP, PDF, DOCX)</p>
+                  <input type="file" id="sumFileInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx" style="display:none" onchange="sumFileSelect(event)">
                 </div>
                 <div class="file-chips" id="sumFileChips"></div>
               </div>
@@ -1064,6 +1067,22 @@ async function extractPdfText(file) {
     return full;
   } catch(e) { console.error(e); return '[Could not extract PDF text]'; }
 }
+// Extract text from a single file (image OCR, Word, or PDF) — used by the Lesson Summary generator.
+async function extractTextFromFile(f){
+  try{
+    if(/\.(jpe?g|png|webp)$/i.test(f.name)){
+      const result = await Tesseract.recognize(f,'eng',{logger:()=>{}});
+      return result.data.text;
+    } else if(/\.docx?$/i.test(f.name)){
+      const buf = await f.arrayBuffer();
+      const r = await mammoth.extractRawText({arrayBuffer:buf});
+      return r.value;
+    } else if(/\.pdf$/i.test(f.name)){
+      return await extractPdfText(f);
+    }
+  }catch(e){ console.error('Extraction error:',f.name,e); return `[Could not read ${f.name}]`; }
+  return '';
+}
 
 // ==================== GEMINI ====================
 async function callGemini(prompt, apiKey, model) {
@@ -1172,7 +1191,7 @@ function buildGeminiPrompt(sourceText, formData) {
     '5': 'more complex vocabulary, detailed explanations, analytical thinking',
     '6': 'advanced vocabulary, comprehensive content, critical thinking skills'
   };
-  const src = (sourceText || '').slice(0, 8000);
+  const src = (sourceText || '').slice(0, 200000);
   const subjLower = (formData.subject || '').toLowerCase().trim();
   // ONLY Filipino, Arpan, and Araling Panlipunan generate in Filipino. Everything else (MAPEH, Math, Science, English, etc.) generates in English.
   const isFilipino = /^(filipino|tagalog|arpan|araling\s*panlipunan)$/.test(subjLower);
@@ -1182,7 +1201,7 @@ function buildGeminiPrompt(sourceText, formData) {
   const persona = isFilipino
     ? `You are an expert Filipino elementary curriculum writer creating a learning module for Grade ${formData.grade} students.`
     : `You are an expert elementary curriculum writer creating a learning module in ENGLISH for Grade ${formData.grade} students.`;
-  const highlightRule = `\n\nKEY-CONCEPT HIGHLIGHTING (VERY IMPORTANT):\nIn EVERY text field (lessonIntro, motivationActivity, mainContent.content, summaryPoints, examples, vocabulary definitions), wrap the MOST important key terms, focus concepts, and main ideas with **double asterisks** so they can be rendered as BOLD. Highlight 2–5 key terms per paragraph — not whole sentences. Example: "The **water cycle** has three main stages: **evaporation**, **condensation**, and **precipitation**."\n`;
+  const highlightRule = `\n\nKEY-CONCEPT HIGHLIGHTING & SUB-POINTS (VERY IMPORTANT):\nIn EVERY text field (lessonIntro, motivationActivity, mainContent.content, summaryPoints, examples, vocabulary definitions), wrap the MOST important key terms, focus concepts, and main ideas with **double asterisks** so they render as BOLD. Highlight 2–5 key terms per paragraph — not whole sentences.\nInside each mainContent.content, break the key focus into clear bullet SUB-POINTS using lines that start with "- " (dash + space) so the main ideas stand out as a list. Example: "The **water cycle** has three main stages:\n- **Evaporation** — water turns into vapor\n- **Condensation** — vapor forms clouds\n- **Precipitation** — water falls as rain"\n`;
   const actCount = Math.max(0, parseInt(formData.activityCount||'0', 10) || 0);
   const actTypes = formData.activityTypes || [];
   const activityRule = (actCount > 0 && actTypes.length)
@@ -1198,7 +1217,7 @@ MODULE INFO:
 - Quarter/Week: ${formData.quarter}
 ${formData.extra ? `- Special instructions: ${formData.extra}` : ''}
 
-SOURCE CONTENT (use this as the primary basis for the lesson; if empty, invent age-appropriate content):
+SOURCE CONTENT — INCLUDE EVERYTHING (VERY IMPORTANT): Use ALL of the text below. Do NOT omit, shorten, or skip any part of it. Cover every topic, fact, example, and detail it contains, reorganized clearly into the module, and create bullet sub-points for each key focus. If empty, invent age-appropriate content:
 """
 ${src || '(none provided — generate appropriate content for the subject and grade)'}
 """
@@ -1359,7 +1378,7 @@ function renderPreview(data) {
   const sections = (data.mainContent||[]).map(s => `
     <div class="lesson-section">
       <h2>${escapeHtml(s.sectionTitle||'Section')}</h2>
-      <p>${formatRich(s.content||'')}</p>
+      ${renderRich(s.content||'')}
       ${s.activity ? `
         <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
           <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${escapeHtml(s.activity.title||'Activity')}</h4>
@@ -1462,6 +1481,25 @@ function stripLeadLetter(s){ return String(s||'').replace(/^\s*[A-Za-z]\s*[\.\)\
 // Convert **bold** markdown to <strong> after escaping HTML — safe to pass through innerHTML
 function formatRich(s){
   return escapeHtml(String(s||'')).replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--secondary)">$1</strong>');
+}
+// Renders text that may contain "- " bullet sub-points as proper lists, keeping bold highlights.
+function renderRich(content){
+  return String(content||'').split(/\n\n+/).map(block=>{
+    const lines=block.split(/\n/).map(l=>l.trim()).filter(Boolean);
+    if(!lines.length) return '';
+    let html=''; let listOpen=false;
+    for(const l of lines){
+      if(/^[-•]\s+/.test(l)){
+        if(!listOpen){ html+='<ul style="padding-left:22px;line-height:1.9;margin:6px 0">'; listOpen=true; }
+        html+=`<li>${formatRich(l.replace(/^[-•]\s+/,''))}</li>`;
+      } else {
+        if(listOpen){ html+='</ul>'; listOpen=false; }
+        html+=`<p>${formatRich(l)}</p>`;
+      }
+    }
+    if(listOpen) html+='</ul>';
+    return html;
+  }).join('');
 }
 function renderAnswerKeysHtml(data) {
   const include = !data._meta || data._meta.includeAnswerKey !== false;
@@ -1941,7 +1979,7 @@ function sumFileSelect(e){ sumProcessFiles(e.target.files); e.target.value=''; }
 function sumProcessFiles(files){
   for(const f of files){
     if(summaryFiles.length>=5){ showToast('⚠️ Max 5 pictures','error'); break; }
-    if(!/\.(jpe?g|png|webp)$/i.test(f.name)){ showToast(`⚠️ ${f.name} is not an image`,'error'); continue; }
+    if(!/\.(jpe?g|png|webp|pdf|docx?)$/i.test(f.name)){ showToast(`⚠️ ${f.name} is not a supported file`,'error'); continue; }
     if(f.size>10*1024*1024){ showToast(`⚠️ ${f.name} too large (max 10MB)`,'error'); continue; }
     summaryFiles.push(f);
   }
@@ -1949,7 +1987,7 @@ function sumProcessFiles(files){
 }
 function renderSumFileChips(){
   document.getElementById('sumFileChips').innerHTML = summaryFiles.map((f,i)=>
-    `<div class="file-chip">🖼️ ${escapeHtml(f.name)} <button onclick="removeSumFile(${i})" title="Remove">×</button></div>`).join('');
+    `<div class="file-chip">${/\.(pdf|docx?)$/i.test(f.name)?'📄':'🖼️'} ${escapeHtml(f.name)} <button onclick="removeSumFile(${i})" title="Remove">×</button></div>`).join('');
 }
 function removeSumFile(i){ summaryFiles.splice(i,1); renderSumFileChips(); }
 
@@ -1979,26 +2017,32 @@ async function callGeminiMultimodal(parts, apiKey, model){
   return txt;
 }
 
-function buildSummaryPrompt(form){
+function buildSummaryPrompt(form, sourceText){
   const sub=(form.subject||'').toLowerCase().trim();
-  // ONLY Filipino, Arpan, and Araling Panlipunan generate in Filipino. Everything else (MAPEH, Math, Science, English, etc.) generates in English.
   const isFilipino=/^(filipino|tagalog|arpan|araling\s*panlipunan)$/.test(sub);
   const wordsPerPage=350;
   const total=form.pages*wordsPerPage;
+  const src=(sourceText||'').slice(0,200000);
   const persona = isFilipino
     ? `You are an expert Filipino elementary teacher writing a LESSON SUMMARY for Grade ${form.grade} students.`
     : `You are an expert elementary teacher writing a LESSON SUMMARY in ENGLISH for Grade ${form.grade} students.`;
   const langRule = isFilipino
     ? `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE lesson summary — title, introduction, every section heading, every paragraph, every vocabulary word AND its definition, key points, and examples — in natural, grammatically correct FULL FILIPINO (Tagalog). Do NOT use English at all except for proper nouns or technical terms that have no Filipino equivalent. Use age-appropriate Filipino for Grade ${form.grade} learners.\n`
     : `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE lesson summary in clear, grade-appropriate ENGLISH. Do NOT use Filipino/Tagalog words. Every heading, paragraph, vocabulary entry, key point, and example must be in English.\n`;
-  const highlightRule = `\n\nKEY-CONCEPT HIGHLIGHTING (VERY IMPORTANT):\nIn EVERY text field (introduction, sections.content, keyPoints, examples, vocabulary definitions), wrap the MOST important key terms, focus concepts, and main ideas with **double asterisks** so they can be rendered as BOLD. Highlight 2–5 key terms per paragraph — never whole sentences. Example: "**Photosynthesis** is how plants make food using **sunlight**, **water**, and **carbon dioxide**."\n`;
+  const highlightRule = `\n\nKEY-CONCEPT HIGHLIGHTING & SUB-POINTS (VERY IMPORTANT):\nIn EVERY text field (introduction, sections.content, keyPoints, examples, vocabulary definitions), wrap the MOST important key terms, focus concepts, and main ideas with **double asterisks** so they render as BOLD. Highlight 2–5 key terms per paragraph — never whole sentences.\nFor each section, break the key focus into clear bullet SUB-POINTS using lines that start with "- " (dash + space) inside the content, so the main ideas stand out as a list under each heading.\n`;
+  const includeRule = `\n\nINCLUDE EVERYTHING (VERY IMPORTANT):\nUse ALL of the material provided — every picture AND all of the pasted/extracted text below. Do NOT omit, shorten, or skip ANY topic, fact, definition, example, or detail. Cover everything, reorganized into a clear, complete summary, and add a section for every distinct topic found in the source.\n`;
   return `${persona}
-Carefully READ every picture provided (they may contain text, diagrams, drawings, or photos from a textbook). Extract the lesson content accurately from the pictures.
-${langRule}${highlightRule}
-Build a clear, complete lesson SUMMARY that is approximately ${form.pages} page(s) long (~${total} words total).
+Carefully READ every picture provided (they may contain text, diagrams, drawings, or photos from a textbook) AND read all the pasted/extracted text below. Extract the lesson content accurately from BOTH.
+${langRule}${highlightRule}${includeRule}
+Build a clear, complete lesson SUMMARY that is at least ${form.pages} page(s) long (~${total} words total) — longer is fine if needed to include everything.
 Subject: ${form.subject}
-Lesson Title: ${form.title || '(derive from the pictures)'}
+Lesson Title: ${form.title || '(derive from the source)'}
 ${form.extra?`Special instructions: ${form.extra}`:''}
+
+SOURCE TEXT — INCLUDE ALL OF THIS:
+"""
+${src || '(no pasted text — use the pictures only)'}
+"""
 
 Return ONLY valid JSON (no markdown, no commentary, no backticks). Use this exact schema:
 {
@@ -2006,18 +2050,18 @@ Return ONLY valid JSON (no markdown, no commentary, no backticks). Use this exac
   "introduction": "Friendly 2-4 sentence intro to the lesson",
   "keyVocabulary": [{"word":"term","definition":"kid-friendly meaning"}],
   "sections": [
-    { "heading": "Section heading", "content": "Detailed paragraph(s) summarizing this part of the lesson — use multiple short paragraphs separated by \\n\\n if needed" }
+    { "heading": "Section heading", "content": "Detailed paragraph(s) summarizing this part of the lesson. Use multiple short paragraphs separated by \\n\\n, and include bullet sub-points as lines starting with \"- \" for the key focus." }
   ],
   "keyPoints": ["5 to 8 most important takeaways"],
   "examples": ["2 to 4 concrete examples or applications"]
 }
-Provide enough sections so the total written content fits about ${form.pages} page(s). Keep tone warm, encouraging, and age-appropriate.`;
+Provide enough sections so EVERY topic from the source is covered. Keep tone warm, encouraging, and age-appropriate.`;
 }
-
 async function generateSummary(){
   const apiKey=(document.getElementById('apiKeyInput').value.trim())||appState.activeApiKey;
   if(!apiKey){ showToast('⚠️ Please enter a Gemini API key first!','error'); showPanel('settings'); return; }
-  if(!summaryFiles.length){ showToast('⚠️ Upload 1–5 pictures first','error'); return; }
+  const hasPasted=!!(document.getElementById('sumPastedText')?.value||'').trim();
+  if(!summaryFiles.length && !hasPasted){ showToast('⚠️ Paste lesson text or upload pictures/documents first','error'); return; }
   const form={
     grade:document.getElementById('sumGrade').value,
     subject:document.getElementById('sumSubject').value,
@@ -2032,12 +2076,22 @@ async function generateSummary(){
   ['sumBtnDocx','sumBtnHtml','sumBtnPdf','sumBtnSave','sumBtnRegen'].forEach(id=>document.getElementById(id).disabled=true);
   sumShowOverlay(true); sumSetStep('🖼️ Reading pictures…','Encoding images',15);
   try{
-    const parts=[{text:buildSummaryPrompt(form)}];
-    for(let i=0;i<summaryFiles.length;i++){
+    // Gather pasted text + extract text from any uploaded documents (Word/PDF); send images to the AI vision model.
+    let sourceText = (document.getElementById('sumPastedText')?.value || '').trim();
+    const imageFiles = summaryFiles.filter(f=>/\.(jpe?g|png|webp)$/i.test(f.name));
+    const docFiles   = summaryFiles.filter(f=>/\.(pdf|docx?)$/i.test(f.name));
+    for(let i=0;i<docFiles.length;i++){
       if(sumGenAbort.signal.aborted) throw new Error('Cancelled');
-      sumSetStep(`🖼️ Encoding picture ${i+1}/${summaryFiles.length}…`,summaryFiles[i].name,20+i*8);
-      const b64=await fileToBase64(summaryFiles[i]);
-      parts.push({inlineData:{mimeType:mimeOf(summaryFiles[i].name),data:b64}});
+      sumSetStep(`📄 Reading ${docFiles[i].name}…`,'Extracting all text',16+i*4);
+      const t = await extractTextFromFile(docFiles[i]);
+      if(t) sourceText += '\n\n' + t;
+    }
+    const parts=[{text:buildSummaryPrompt(form, sourceText)}];
+    for(let i=0;i<imageFiles.length;i++){
+      if(sumGenAbort.signal.aborted) throw new Error('Cancelled');
+      sumSetStep(`🖼️ Encoding picture ${i+1}/${imageFiles.length}…`,imageFiles[i].name,30+i*8);
+      const b64=await fileToBase64(imageFiles[i]);
+      parts.push({inlineData:{mimeType:mimeOf(imageFiles[i].name),data:b64}});
     }
     sumSetStep('🤖 Asking Gemini AI to read the pictures and write the summary…',`Model: ${model}`,55);
     let raw;
@@ -2072,8 +2126,7 @@ function renderSummaryPreview(data){
   const borderStyle = border.type==='gradient' ? `border:8px solid ${border.color};` : `border:8px ${border.type} ${border.color};`;
   const vocab=(data.keyVocabulary||[]).map(v=>`<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const sections=(data.sections||[]).map(s=>{
-    const paras=String(s.content||'').split(/\n\n+/).map(p=>`<p>${formatRich(p)}</p>`).join('');
-    return `<div class="lesson-section"><h2>${escapeHtml(s.heading||'Section')}</h2>${paras}</div>`;
+    return `<div class="lesson-section"><h2>${escapeHtml(s.heading||'Section')}</h2>${renderRich(s.content)}</div>`;
   }).join('');
   const points=(data.keyPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
   const examples=(data.examples||[]).map(e=>`<li>${formatRich(e)}</li>`).join('');
