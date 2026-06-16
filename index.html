@@ -1073,6 +1073,40 @@ async function callGemini(prompt, apiKey, model) {
   return txt;
 }
 
+// Generate an actual image (PNG base64 data URL) from a text prompt using Gemini's image-capable model.
+// Returns null on failure so the caller can fall back to the text-prompt placeholder.
+async function generateModuleImage(prompt, apiKey) {
+  const models = ['gemini-2.5-flash-image-preview', 'gemini-2.0-flash-preview-image-generation'];
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const controller = new AbortController();
+      if (genAbort) genAbort.signal.addEventListener('abort', () => controller.abort());
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Create a simple, colorful, kid-friendly illustration suitable for an elementary school learning module. The image should be bright, clear, and engaging — no text, no labels, no captions. Subject: ${prompt}` }] }],
+          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+        })
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      for (const p of parts) {
+        const inline = p.inlineData || p.inline_data;
+        if (inline && inline.data) {
+          return `data:${inline.mimeType || inline.mime_type || 'image/png'};base64,${inline.data}`;
+        }
+      }
+    } catch(e) { /* try next model */ }
+  }
+  return null;
+}
+
+
+
 function extractJson(raw) {
   let s = String(raw).trim();
   // strip code fences
@@ -1117,18 +1151,23 @@ function buildGeminiPrompt(sourceText, formData) {
     '6': 'advanced vocabulary, comprehensive content, critical thinking skills'
   };
   const src = (sourceText || '').slice(0, 8000);
-  const subjLower = (formData.subject || '').toLowerCase();
-  const isFilipino = /filipino|tagalog|araling\s*panlipunan|\bap\b|sibika|hekasi|mtb|mother\s*tongue/.test(subjLower);
+  const subjLower = (formData.subject || '').toLowerCase().trim();
+  // ONLY Filipino, Arpan, and Araling Panlipunan generate in Filipino. Everything else (MAPEH, Math, Science, English, etc.) generates in English.
+  const isFilipino = /^(filipino|tagalog|arpan|araling\s*panlipunan)$/.test(subjLower);
   const languageRule = isFilipino
-    ? `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE module — every objective, vocabulary word AND definition, motivation activity, lesson intro, all section titles, all content paragraphs, activity titles and instructions, table headers and rows, summary points, assessment questions, activities, and answer keys — in natural, grammatically correct FILIPINO (Tagalog). Do NOT use English except for proper nouns. Use age-appropriate Filipino vocabulary for Grade ${formData.grade} learners.\n`
-    : '';
+    ? `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE module — every objective, vocabulary word AND definition, motivation activity, lesson intro, all section titles, all content paragraphs, activity titles and instructions, table headers and rows, summary points, assessment questions, activities, and answer keys — in natural, grammatically correct FULL FILIPINO (Tagalog). Do NOT use English at all except for proper nouns. Use age-appropriate Filipino vocabulary for Grade ${formData.grade} learners.\n`
+    : `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE module in clear, grade-appropriate ENGLISH. Do NOT use Filipino/Tagalog words. Every objective, vocabulary entry, paragraph, activity, table, summary point, assessment question, and answer key MUST be in English.\n`;
+  const persona = isFilipino
+    ? `You are an expert Filipino elementary curriculum writer creating a learning module for Grade ${formData.grade} students.`
+    : `You are an expert elementary curriculum writer creating a learning module in ENGLISH for Grade ${formData.grade} students.`;
+  const highlightRule = `\n\nKEY-CONCEPT HIGHLIGHTING (VERY IMPORTANT):\nIn EVERY text field (lessonIntro, motivationActivity, mainContent.content, summaryPoints, examples, vocabulary definitions), wrap the MOST important key terms, focus concepts, and main ideas with **double asterisks** so they can be rendered as BOLD. Highlight 2–5 key terms per paragraph — not whole sentences. Example: "The **water cycle** has three main stages: **evaporation**, **condensation**, and **precipitation**."\n`;
   const actCount = Math.max(0, parseInt(formData.activityCount||'0', 10) || 0);
   const actTypes = formData.activityTypes || [];
   const activityRule = (actCount > 0 && actTypes.length)
-    ? `\n\nACTIVITY REQUIREMENTS (VERY IMPORTANT):\nGenerate EXACTLY ${actCount} student activities in the "activities" array. Use ONLY these activity types and rotate among them: ${actTypes.join(', ')}.\nEvery activity MUST include an "answerKey" array with the correct answer for every item (for teacher use only).\nActivity-type item formats:\n- check_x: 5-8 statements. items=["statement", ...]; answerKey=["check"|"x", ...]\n- true_false: 5-8 statements. items=["statement", ...]; answerKey=["true"|"false", ...]\n- matching: 5-6 pairs. items=[{"left":"...","right":"..."}, ...]; answerKey: pairs in correct order\n- draw: items=["what to draw"]; answerKey=["description of expected drawing"]\n- cut_paste: 4-6 labels to sort. items=[{"label":"...","category":"..."}, ...]; answerKey=[{"label":"...","correctCategory":"..."}, ...]\n- multiple_choice: 5-8 questions. items=[{"question":"...","choices":["A","B","C","D"]}, ...]; answerKey=["A", ...]\n`
+    ? `\n\nACTIVITY REQUIREMENTS (VERY IMPORTANT):\nGenerate EXACTLY ${actCount} student activities in the "activities" array. Use ONLY these activity types and rotate among them: ${actTypes.join(', ')}.\nEvery activity MUST include an "answerKey" array with the correct answer for every item (for teacher use only).\nDO NOT include leading numbers ("1.", "2)") or leading letters ("A.", "B)") inside any item text — the renderer adds them automatically. Just provide the raw text or option.\nActivity-type item formats:\n- check_x: 5-8 statements. items=["statement", ...]; answerKey=["check"|"x", ...]\n- true_false: 5-8 statements. items=["statement", ...]; answerKey=["true"|"false", ...]\n- matching: 5-6 pairs. items=[{"left":"...","right":"..."}, ...]; answerKey: pairs in correct order\n- draw: items=["what to draw"]; answerKey=["description of expected drawing"]\n- cut_paste: 4-6 labels to sort. items=[{"label":"...","category":"..."}, ...]; answerKey=[{"label":"...","correctCategory":"..."}, ...]\n- multiple_choice: 5-8 questions. items=[{"question":"...","choices":["A","B","C","D"]}, ...]; answerKey=["A", ...]\n`
     : '';
-  return `You are an expert Filipino elementary curriculum writer creating a learning module for Grade ${formData.grade} students.
-Reading level: ${gradeDesc[formData.grade] || gradeDesc['4']}${languageRule}${activityRule}
+  return `${persona}
+Reading level: ${gradeDesc[formData.grade] || gradeDesc['4']}${languageRule}${highlightRule}${activityRule}
 
 MODULE INFO:
 - Title: ${formData.title}
@@ -1222,12 +1261,23 @@ async function generateModule() {
     }
     setStep(3, 'done');
 
-    setStep(4, 'active'); setGenStep('📦 Parsing module data…', '', 75);
+    setStep(4, 'active'); setGenStep('📦 Parsing module data…', '', 70);
     currentModuleJSON = extractJson(raw);
     currentModuleJSON._meta = formData;
     setStep(4, 'done');
 
-    setStep(5, 'active'); setGenStep('🎨 Building module preview…', '', 90);
+    // Generate the actual illustration image (non-blocking on failure)
+    if (currentModuleJSON.imagePrompt) {
+      try {
+        setGenStep('🖼️ Generating illustration…', 'Calling image model', 82);
+        const imgDataUrl = await generateModuleImage(currentModuleJSON.imagePrompt, apiKey);
+        if (imgDataUrl) currentModuleJSON.imageDataUrl = imgDataUrl;
+      } catch(imgErr) {
+        console.warn('Image generation failed:', imgErr);
+      }
+    }
+
+    setStep(5, 'active'); setGenStep('🎨 Building module preview…', '', 92);
     renderPreview(currentModuleJSON);
     appState.lastModuleData = { json: currentModuleJSON, formData, border: appState.selectedBorder, createdAt: new Date().toISOString() };
     setStep(5, 'done');
@@ -1282,16 +1332,16 @@ function renderPreview(data) {
     ? `border:8px solid ${border.color};`
     : `border:8px ${border.type} ${border.color};`;
 
-  const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${escapeHtml(v.definition||'')}</td></tr>`).join('');
-  const objectives = (data.learningObjectives||[]).map(o => `<li>${escapeHtml(o)}</li>`).join('');
+  const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
+  const objectives = (data.learningObjectives||[]).map(o => `<li>${formatRich(o)}</li>`).join('');
   const sections = (data.mainContent||[]).map(s => `
     <div class="lesson-section">
       <h2>${escapeHtml(s.sectionTitle||'Section')}</h2>
-      <p>${escapeHtml(s.content||'')}</p>
+      <p>${formatRich(s.content||'')}</p>
       ${s.activity ? `
         <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
           <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${escapeHtml(s.activity.title||'Activity')}</h4>
-          <p style="font-size:12px;margin-bottom:10px">${escapeHtml(s.activity.instructions||'')}</p>
+          <p style="font-size:12px;margin-bottom:10px">${formatRich(s.activity.instructions||'')}</p>
           ${(s.activity.tableHeaders && s.activity.tableHeaders.length) ? `
             <table class="activity-table">
               <tr>${s.activity.tableHeaders.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr>
@@ -1300,8 +1350,19 @@ function renderPreview(data) {
         </div>` : ''}
     </div>
   `).join('');
-  const summary = (data.summaryPoints||[]).map(p=>`<li>${escapeHtml(p)}</li>`).join('');
-  const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p style="margin-bottom:8px"><strong>${i+1}.</strong> ${escapeHtml(q)}</p>`).join('');
+  const summary = (data.summaryPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
+  const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p style="margin-bottom:8px"><strong>${i+1}.</strong> ${formatRich(q)}</p>`).join('');
+
+  const imgBlock = data.imageDataUrl
+    ? `<div style="text-align:center;margin:20px 0">
+         <img src="${data.imageDataUrl}" alt="${escapeHtml(data.imagePrompt||'Lesson illustration')}" style="max-width:100%;border-radius:14px;box-shadow:0 4px 18px rgba(108,99,255,.18)">
+         ${data.imagePrompt?`<p style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">${escapeHtml(data.imagePrompt)}</p>`:''}
+       </div>`
+    : (data.imagePrompt ? `
+        <div style="text-align:center;margin:20px 0;padding:20px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
+          <div style="font-size:48px">🖼️</div>
+          <p style="font-size:12px;color:var(--muted);margin-top:8px">Illustration idea: ${escapeHtml(data.imagePrompt)}</p>
+        </div>` : '');
 
   document.getElementById('previewArea').innerHTML = `
     <div class="module-preview" style="${borderStyle}">
@@ -1321,16 +1382,12 @@ function renderPreview(data) {
       <div class="lesson-section"><h2>🎯 Learning Objectives</h2><ul style="padding-left:20px;font-size:13px;line-height:2">${objectives}</ul></div>
       <div style="background:linear-gradient(135deg,#fff0f5,#fff7e6);border-radius:12px;padding:16px;margin:16px 0">
         <h3 style="font-family:'Fredoka One',sans-serif;color:var(--secondary);font-size:16px;margin-bottom:8px">🌟 Let's Get Started!</h3>
-        <p style="font-size:13px">${escapeHtml(data.motivationActivity||'')}</p>
+        <p style="font-size:13px">${formatRich(data.motivationActivity||'')}</p>
       </div>
       ${vocab ? `<div class="lesson-section"><h2>📖 Key Vocabulary</h2><table class="activity-table"><tr><th>Word</th><th>Meaning</th></tr>${vocab}</table></div>` : ''}
-      <div class="lesson-section"><h2>📝 Introduction</h2><p>${escapeHtml(data.lessonIntro||'')}</p></div>
+      <div class="lesson-section"><h2>📝 Introduction</h2><p>${formatRich(data.lessonIntro||'')}</p></div>
       ${sections}
-      ${data.imagePrompt ? `
-        <div style="text-align:center;margin:20px 0;padding:20px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
-          <div style="font-size:48px">🖼️</div>
-          <p style="font-size:12px;color:var(--muted);margin-top:8px">Illustration idea: ${escapeHtml(data.imagePrompt)}</p>
-        </div>` : ''}
+      ${imgBlock}
       ${renderActivitiesHtml(data.activities||[])}
       <div class="summary-box"><h3>⭐ Lesson Summary</h3><ul>${summary}</ul></div>
       ${assessment ? `<div class="lesson-section" style="margin-top:20px"><h2>✏️ Check Your Understanding</h2>${assessment}</div>` : ''}
@@ -1354,22 +1411,35 @@ function renderActivityItemsHtml(a) {
   const items = a.items || [];
   switch (a.type) {
     case 'check_x':
-      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${escapeHtml(String(s))}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${escapeHtml(stripLeadNum(String(s)))}</td></tr>`).join('')}</table>`;
     case 'true_false':
-      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${escapeHtml(String(s))}</td></tr>`).join('')}</table>`;
-    case 'matching':
-      return `<table class="activity-table"><tr><th>Column A</th><th>Match</th><th>Column B</th></tr>${items.map((p,i)=>`<tr><td>${i+1}. ${escapeHtml(p.left||'')}</td><td style="text-align:center">____</td><td>${String.fromCharCode(65+i)}. ${escapeHtml((items[items.length-1-i]||{}).right||p.right||'')}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${escapeHtml(stripLeadNum(String(s)))}</td></tr>`).join('')}</table>`;
+    case 'matching': {
+      const left = items.map(p=>stripLeadNum(String(p.left||'')));
+      const right = items.map(p=>stripLeadLetter(String(p.right||'')));
+      // Shuffle right column so it doesn't line up with left
+      const order = right.map((_,i)=>i).sort(()=>Math.random()-0.5);
+      return `<table class="activity-table"><tr><th>Column A</th><th>Match</th><th>Column B</th></tr>${left.map((l,i)=>`<tr><td>${i+1}. ${escapeHtml(l)}</td><td style="text-align:center">____</td><td>${String.fromCharCode(65+i)}. ${escapeHtml(right[order[i]]||'')}</td></tr>`).join('')}</table>`;
+    }
     case 'draw':
       return `<div style="border:2px dashed #c5cae9;border-radius:10px;padding:24px;text-align:center;min-height:180px"><p style="font-size:13px;color:var(--muted)">✏️ ${escapeHtml(String(items[0]||'Draw here'))}</p></div>`;
     case 'cut_paste':
       const cats = [...new Set(items.map(x=>x.category).filter(Boolean))];
-      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>escapeHtml(x.label||'')).join(' • ')}</p>
+      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>escapeHtml(stripLeadNum(x.label||''))).join(' • ')}</p>
         <table class="activity-table"><tr>${cats.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr><tr>${cats.map(()=>`<td style="height:80px"></td>`).join('')}</tr></table>`;
     case 'multiple_choice':
-      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${escapeHtml(q.question||'')}</p>${(q.choices||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${escapeHtml(String(c).replace(/^\s*[A-Da-d]\s*[\.\)\:\-]\s*/, ''))}</p>`).join('')}</div>`).join('');
+      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${escapeHtml(stripLeadNum(q.question||''))}</p>${(q.choices||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${escapeHtml(stripLeadLetter(String(c)))}</p>`).join('')}</div>`).join('');
     default:
       return `<p style="font-size:12px;color:var(--muted)">${items.map(x=>escapeHtml(typeof x==='string'?x:JSON.stringify(x))).join('<br>')}</p>`;
   }
+}
+// Strip AI-emitted leading numbering like "1.", "2)", "3:" so the renderer's own numbers don't double up
+function stripLeadNum(s){ return String(s||'').replace(/^\s*\d+\s*[\.\)\:\-]\s*/, '').trim(); }
+// Strip AI-emitted leading letters like "A.", "b)", "C:" so renderer's own letters don't double up
+function stripLeadLetter(s){ return String(s||'').replace(/^\s*[A-Za-z]\s*[\.\)\:\-]\s*/, '').trim(); }
+// Convert **bold** markdown to <strong> after escaping HTML — safe to pass through innerHTML
+function formatRich(s){
+  return escapeHtml(String(s||'')).replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--secondary)">$1</strong>');
 }
 function renderAnswerKeysHtml(data) {
   const include = !data._meta || data._meta.includeAnswerKey !== false;
@@ -1826,8 +1896,9 @@ async function callGeminiMultimodal(parts, apiKey, model){
 }
 
 function buildSummaryPrompt(form){
-  const sub=(form.subject||'').toLowerCase();
-  const isFilipino=/filipino|tagalog|araling\s*panlipunan|\barpan\b|\bap\b|sibika|hekasi|mtb|mother\s*tongue/.test(sub);
+  const sub=(form.subject||'').toLowerCase().trim();
+  // ONLY Filipino, Arpan, and Araling Panlipunan generate in Filipino. Everything else (MAPEH, Math, Science, English, etc.) generates in English.
+  const isFilipino=/^(filipino|tagalog|arpan|araling\s*panlipunan)$/.test(sub);
   const wordsPerPage=350;
   const total=form.pages*wordsPerPage;
   const persona = isFilipino
@@ -1836,9 +1907,10 @@ function buildSummaryPrompt(form){
   const langRule = isFilipino
     ? `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE lesson summary — title, introduction, every section heading, every paragraph, every vocabulary word AND its definition, key points, and examples — in natural, grammatically correct FULL FILIPINO (Tagalog). Do NOT use English at all except for proper nouns or technical terms that have no Filipino equivalent. Use age-appropriate Filipino for Grade ${form.grade} learners.\n`
     : `\n\nLANGUAGE REQUIREMENT (VERY IMPORTANT):\nWrite the ENTIRE lesson summary in clear, grade-appropriate ENGLISH. Do NOT use Filipino/Tagalog words. Every heading, paragraph, vocabulary entry, key point, and example must be in English.\n`;
+  const highlightRule = `\n\nKEY-CONCEPT HIGHLIGHTING (VERY IMPORTANT):\nIn EVERY text field (introduction, sections.content, keyPoints, examples, vocabulary definitions), wrap the MOST important key terms, focus concepts, and main ideas with **double asterisks** so they can be rendered as BOLD. Highlight 2–5 key terms per paragraph — never whole sentences. Example: "**Photosynthesis** is how plants make food using **sunlight**, **water**, and **carbon dioxide**."\n`;
   return `${persona}
 Carefully READ every picture provided (they may contain text, diagrams, drawings, or photos from a textbook). Extract the lesson content accurately from the pictures.
-${langRule}
+${langRule}${highlightRule}
 Build a clear, complete lesson SUMMARY that is approximately ${form.pages} page(s) long (~${total} words total).
 Subject: ${form.subject}
 Lesson Title: ${form.title || '(derive from the pictures)'}
@@ -1914,13 +1986,13 @@ function sumSetStep(msg,sub,pct){
 function renderSummaryPreview(data){
   const meta=data._meta||{}; const border=BORDERS[appState.sumSelectedBorder];
   const borderStyle = border.type==='gradient' ? `border:8px solid ${border.color};` : `border:8px ${border.type} ${border.color};`;
-  const vocab=(data.keyVocabulary||[]).map(v=>`<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${escapeHtml(v.definition||'')}</td></tr>`).join('');
+  const vocab=(data.keyVocabulary||[]).map(v=>`<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const sections=(data.sections||[]).map(s=>{
-    const paras=String(s.content||'').split(/\n\n+/).map(p=>`<p>${escapeHtml(p)}</p>`).join('');
+    const paras=String(s.content||'').split(/\n\n+/).map(p=>`<p>${formatRich(p)}</p>`).join('');
     return `<div class="lesson-section"><h2>${escapeHtml(s.heading||'Section')}</h2>${paras}</div>`;
   }).join('');
-  const points=(data.keyPoints||[]).map(p=>`<li>${escapeHtml(p)}</li>`).join('');
-  const examples=(data.examples||[]).map(e=>`<li>${escapeHtml(e)}</li>`).join('');
+  const points=(data.keyPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
+  const examples=(data.examples||[]).map(e=>`<li>${formatRich(e)}</li>`).join('');
   document.getElementById('sumPreviewArea').innerHTML=`
     <div class="module-preview" style="${borderStyle}">
       <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
@@ -1933,7 +2005,7 @@ function renderSummaryPreview(data){
         </div>
       </div>
       <hr style="border:none;border-top:3px dashed #eef0f6;margin:24px 0">
-      <div class="lesson-section"><h2>📝 Introduction</h2><p>${escapeHtml(data.introduction||'')}</p></div>
+      <div class="lesson-section"><h2>📝 Introduction</h2><p>${formatRich(data.introduction||'')}</p></div>
       ${vocab?`<div class="lesson-section"><h2>📖 Key Vocabulary</h2><table class="activity-table"><tr><th>Word</th><th>Meaning</th></tr>${vocab}</table></div>`:''}
       ${sections}
       ${points?`<div class="summary-box"><h3>⭐ Key Points</h3><ul>${points}</ul></div>`:''}
@@ -2074,6 +2146,38 @@ window.addEventListener('load', () => {
   renderSumBorderGrid();
   renderSelectedActChips();
   document.querySelectorAll('.act-type').forEach(cb => cb.addEventListener('change', renderSelectedActChips));
+
+  // Allow pasting images directly into the "paste text" box — they get added as upload files so the generator includes them
+  const pasted = document.getElementById('pastedText');
+  if (pasted) {
+    pasted.addEventListener('paste', (e) => {
+      const items = (e.clipboardData || window.clipboardData)?.items || [];
+      const imgs = [];
+      for (const it of items) {
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+          const f = it.getAsFile();
+          if (f) {
+            const ext = (f.type.split('/')[1] || 'png').replace('jpeg','jpg');
+            const named = new File([f], f.name && f.name !== 'image.png' ? f.name : `pasted-${Date.now()}.${ext}`, { type: f.type });
+            imgs.push(named);
+          }
+        }
+      }
+      if (imgs.length) {
+        e.preventDefault();
+        for (const f of imgs) {
+          if (f.size > 15 * 1024 * 1024) { showToast(`⚠️ Pasted image too large (max 15MB)`, 'error'); continue; }
+          uploadedFiles.push(f);
+        }
+        renderFileChips();
+        showToast(`🖼️ ${imgs.length} pasted image${imgs.length>1?'s':''} added to source materials`, 'success');
+      }
+    });
+    // Hint the user
+    if (!pasted.placeholder.includes('paste images')) {
+      pasted.placeholder = pasted.placeholder + ' (you can also paste images here — they will be attached to the lesson)';
+    }
+  }
 });
 </script>
 </body>
