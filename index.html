@@ -16,6 +16,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- mammoth.js for docx reading -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<!-- html2pdf for real PDF downloads -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -477,7 +479,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
               <div id="exportButtons" class="mt-16 flex gap-8" style="justify-content:center;flex-wrap:wrap;padding:12px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
                 <button class="btn btn-success" id="btnExportDocx" style="width:auto" onclick="exportDocx()" disabled>📄 Download .docx</button>
                 <button class="btn btn-primary" id="btnExportHtml" style="width:auto" onclick="exportHtml()" disabled>🌐 Download .html (exact style)</button>
-                <button class="btn btn-primary" id="btnPrintPdf" style="width:auto" onclick="printPdf()" disabled>🖨️ Print / Save as PDF</button>
+                <button class="btn btn-primary" id="btnPrintPdf" style="width:auto" onclick="downloadPdf()" disabled>📥 Download PDF</button>
                 <button class="btn btn-secondary" id="btnSaveModule" style="width:auto" onclick="saveToHistory()" disabled>💾 Save Module</button>
                 <button class="btn btn-warning" id="btnRegen" style="width:auto" onclick="regenerate()" disabled>🔄 Regenerate</button>
                 <button class="btn btn-secondary" id="btnNewBorder" style="width:auto;background:linear-gradient(45deg,#FF6B9D,#FFD93D,#6BCB77,#6C63FF);color:#fff" onclick="randomBorder()" disabled>🎨 New Border</button>
@@ -590,7 +592,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
               <div class="mt-16 flex gap-8" style="justify-content:center;flex-wrap:wrap;padding:12px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
                 <button class="btn btn-success" id="sumBtnDocx" style="width:auto" onclick="exportSummaryDocx()" disabled>📄 Download .docx</button>
                 <button class="btn btn-primary" id="sumBtnHtml" style="width:auto" onclick="exportSummaryHtml()" disabled>🌐 Download .html</button>
-                <button class="btn btn-primary" id="sumBtnPdf" style="width:auto" onclick="printSummaryPdf()" disabled>🖨️ Print / Save as PDF</button>
+                <button class="btn btn-primary" id="sumBtnPdf" style="width:auto" onclick="downloadSummaryPdf()" disabled>📥 Download PDF</button>
                 <button class="btn btn-secondary" id="sumBtnSave" style="width:auto" onclick="saveSummary()" disabled>💾 Save to My Lesson Summaries</button>
                 <button class="btn btn-warning" id="sumBtnRegen" style="width:auto" onclick="generateSummary()" disabled>🔄 Regenerate</button>
               </div>
@@ -1585,18 +1587,43 @@ function exportHtml(){
   }catch(e){ console.error(e); showToast('Failed to export HTML: '+e.message,'error'); }
 }
 
-function printPdf(){
+function printPdf(){ return downloadPdf(); }
+async function downloadPdf(){
   try{
     if(!appState.lastModuleData) return showToast('Generate a module first','error');
+    if(!window.html2pdf) return showToast('PDF library failed to load','error');
     const title = (appState.lastModuleData.formData?.title)||'Module';
     const html = getPreviewExportHtml(title);
-    if(!html) return showToast('Nothing to print','error');
-    const w = window.open('', '_blank');
-    if(!w) return showToast('Popup blocked — allow popups to print','error');
-    w.document.open(); w.document.write(html); w.document.close();
-    w.onload = ()=>{ setTimeout(()=>{ w.focus(); w.print(); }, 400); };
-  }catch(e){ console.error(e); showToast('Failed to print: '+e.message,'error'); }
+    if(!html) return showToast('Nothing to export','error');
+    // Build an offscreen container with only the body content
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:8.5in;background:#fff;';
+    // Copy styles from the export doc
+    doc.querySelectorAll('style,link[rel="stylesheet"]').forEach(n => container.appendChild(n.cloneNode(true)));
+    const body = document.createElement('div');
+    body.innerHTML = doc.body.innerHTML;
+    container.appendChild(body);
+    document.body.appendChild(container);
+    showToast('Generating PDF…','success');
+    try {
+      await html2pdf().set({
+        margin: 0.5,
+        filename: (title.replace(/[^\w\-]+/g,'_')||'Module') + '.pdf',
+        image: { type:'jpeg', quality:0.95 },
+        html2canvas: { scale:2, useCORS:true, backgroundColor:'#ffffff' },
+        jsPDF: { unit:'in', format:[8.5,13], orientation:'portrait' },
+        pagebreak: { mode:['css','legacy'] }
+      }).from(body).save();
+      showToast('✅ PDF downloaded','success');
+    } finally {
+      container.remove();
+    }
+  }catch(e){ console.error(e); showToast('Failed to download PDF: '+e.message,'error'); }
 }
+
+
 
 
 
@@ -2044,15 +2071,35 @@ function exportSummaryHtml(){
     showToast('Downloaded .html','success');
   }catch(e){ showToast('Failed to export: '+e.message,'error'); }
 }
-function printSummaryPdf(){
+function printSummaryPdf(){ return downloadSummaryPdf(); }
+async function downloadSummaryPdf(){
   try{
     if(!currentSummary) return showToast('Generate a summary first','error');
+    if(!window.html2pdf) return showToast('PDF library failed to load','error');
     const title=currentSummary.title||currentSummary._meta?.title||'Lesson Summary';
     const html=getSummaryExportHtml(title);
-    const w=window.open('','_blank'); if(!w) return showToast('Popup blocked','error');
-    w.document.open(); w.document.write(html); w.document.close();
-    w.onload=()=>{ setTimeout(()=>{ w.focus(); w.print(); },400); };
-  }catch(e){ showToast('Failed to print: '+e.message,'error'); }
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(html,'text/html');
+    const container=document.createElement('div');
+    container.style.cssText='position:fixed;left:-10000px;top:0;width:8.5in;background:#fff;';
+    doc.querySelectorAll('style,link[rel="stylesheet"]').forEach(n=>container.appendChild(n.cloneNode(true)));
+    const body=document.createElement('div');
+    body.innerHTML=doc.body.innerHTML;
+    container.appendChild(body);
+    document.body.appendChild(container);
+    showToast('Generating PDF…','success');
+    try{
+      await html2pdf().set({
+        margin:0.5,
+        filename:(title.replace(/[^\w\-]+/g,'_')||'Lesson_Summary')+'.pdf',
+        image:{type:'jpeg',quality:0.95},
+        html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+        jsPDF:{unit:'in',format:[8.5,13],orientation:'portrait'},
+        pagebreak:{mode:['css','legacy']}
+      }).from(body).save();
+      showToast('✅ PDF downloaded','success');
+    } finally { container.remove(); }
+  }catch(e){ console.error(e); showToast('Failed to download PDF: '+e.message,'error'); }
 }
 async function exportSummaryDocx(){
   if(!currentSummary) return showToast('Generate a summary first','error');
