@@ -483,6 +483,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
                 <button class="btn btn-secondary" id="btnSaveModule" style="width:auto" onclick="saveToHistory()" disabled>💾 Save Module</button>
                 <button class="btn btn-warning" id="btnRegen" style="width:auto" onclick="regenerate()" disabled>🔄 Regenerate</button>
                 <button class="btn btn-secondary" id="btnNewBorder" style="width:auto;background:linear-gradient(45deg,#FF6B9D,#FFD93D,#6BCB77,#6C63FF);color:#fff" onclick="randomBorder()" disabled>🎨 New Border</button>
+                <button class="btn btn-primary" id="btnGenAnother" style="width:auto;background:linear-gradient(45deg,#6BCB77,#4D96FF);color:#fff" onclick="generateAnotherModule()">✨ Generate Another Module</button>
               </div>
             </div>
           </div>
@@ -867,6 +868,7 @@ async function loadUserData() {
       const saved = localStorage.getItem('edumodule_data');
       if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; appState.summaries = d.summaries||[]; }
     } catch(e) { console.warn(e); }
+    filterDeleted();
     populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList(); applyPrefs(); return;
   }
   try {
@@ -891,6 +893,7 @@ async function loadUserData() {
         (d.summaries||[]).forEach(s => { if (!sIds.has(s.id)) appState.summaries.push(s); });
       }
     } catch(e){}
+    filterDeleted();
     saveLocalData();
     populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList();
   } catch(e) {
@@ -900,11 +903,28 @@ async function loadUserData() {
       const saved = localStorage.getItem('edumodule_data');
       if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; appState.summaries = d.summaries||[]; }
     } catch(e2){}
+    filterDeleted();
     populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList(); applyPrefs();
   }
 }
 function saveLocalData() {
   try { localStorage.setItem('edumodule_data', JSON.stringify({ apiKeys: appState.apiKeys, modules: appState.modules, prefs: appState.userPrefs, summaries: appState.summaries })); } catch(e){}
+}
+// Permanently track deleted item IDs so they don't reappear from cloud/local merges on refresh
+function getDeletedIds(kind){
+  try { return JSON.parse(localStorage.getItem('edumodule_deleted_'+kind) || '[]'); } catch(e){ return []; }
+}
+function addDeletedId(kind, id){
+  try {
+    const arr = getDeletedIds(kind);
+    if (!arr.includes(id)) { arr.push(id); localStorage.setItem('edumodule_deleted_'+kind, JSON.stringify(arr)); }
+  } catch(e){}
+}
+function filterDeleted(){
+  const dm = new Set(getDeletedIds('modules'));
+  const ds = new Set(getDeletedIds('summaries'));
+  if (dm.size) appState.modules = appState.modules.filter(m => !dm.has(m.id));
+  if (ds.size) appState.summaries = appState.summaries.filter(s => !ds.has(s.id));
 }
 function applyPrefs() {
   const p = appState.userPrefs || {};
@@ -1636,30 +1656,66 @@ async function saveToHistory() {
     id: 'mod_' + Date.now(),
     json: appState.lastModuleData.json
   };
+  let saved = false;
   if (demoMode) {
     appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
-    return showToast('💾 Saved!', 'success');
-  }
-  try {
-    if (!currentUser || !db) {
-      appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
-      return showToast('💾 Saved locally (sign in to sync to cloud)', 'success');
-    }
-    const ref = await db.collection('users').doc(currentUser.uid).collection('modules').add({ ...entry, createdAt: new Date() });
-    appState.modules.unshift({ ...entry, id: ref.id }); saveLocalData(); renderHistoryList(); updateDashboardStats();
-    showToast('💾 Saved to history!', 'success');
-  } catch(e) {
-    console.error('Save error:', e);
-    // Fall back to local save so user never loses work
+    showToast('💾 Saved!', 'success'); saved = true;
+  } else {
     try {
-      appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
-      showToast('💾 Saved locally (cloud save failed: ' + (e.message||e.code||'unknown') + ')', 'success');
-    } catch(e2) {
-      showToast('Error saving: ' + (e.message || e.code || 'unknown'), 'error');
+      if (!currentUser || !db) {
+        appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
+        showToast('💾 Saved locally (sign in to sync to cloud)', 'success'); saved = true;
+      } else {
+        const ref = await db.collection('users').doc(currentUser.uid).collection('modules').add({ ...entry, createdAt: new Date() });
+        appState.modules.unshift({ ...entry, id: ref.id }); saveLocalData(); renderHistoryList(); updateDashboardStats();
+        showToast('💾 Saved to history!', 'success'); saved = true;
+      }
+    } catch(e) {
+      console.error('Save error:', e);
+      try {
+        appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
+        showToast('💾 Saved locally (cloud save failed: ' + (e.message||e.code||'unknown') + ')', 'success'); saved = true;
+      } catch(e2) {
+        showToast('Error saving: ' + (e.message || e.code || 'unknown'), 'error');
+      }
     }
   }
+  if (saved) resetGeneratorArea();
 }
 function regenerate() { generateModule(); }
+
+// Clear the Generate Module workspace so the user can start a fresh module
+function resetGeneratorArea(){
+  appState.lastModuleData = null;
+  currentModuleJSON = null;
+  const preview = document.getElementById('previewArea');
+  if (preview) {
+    preview.innerHTML = `
+      <div class="empty-state">
+        <span class="es-icon">🌈</span>
+        <h3>Module preview will appear here</h3>
+        <p>Fill in the details on the left and click Generate!</p>
+      </div>
+      <div class="gen-overlay" id="genOverlay">
+        <span class="gen-spinner" id="genSpinner">⚙️</span>
+        <div class="gen-status" id="genStatus">Preparing...</div>
+        <div class="gen-step-text" id="genStepText">Please wait</div>
+        <div class="progress-bar" style="width:260px"><div class="progress-fill" id="progressFill"></div></div>
+        <button class="btn btn-secondary btn-sm mt-12" style="width:auto" onclick="cancelGeneration()">Cancel</button>
+      </div>`;
+  }
+  ['btnExportDocx','btnExportHtml','btnPrintPdf','btnSaveModule','btnRegen','btnNewBorder'].forEach(id=>{
+    const el = document.getElementById(id); if (el) el.disabled = true;
+  });
+  ['step1','step2','step3','step4','step5'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active','done'); });
+  const fill = document.getElementById('progressFill'); if (fill) fill.style.width = '0%';
+}
+function generateAnotherModule(){
+  resetGeneratorArea();
+  const titleEl = document.getElementById('moduleTitle');
+  if (titleEl) titleEl.focus();
+  showToast('✨ Ready for a new module!', 'success');
+}
 
 // ==================== ACTIVITY/ANSWER-KEY DOCX HELPERS ====================
 function buildActivitiesDocx(activities, h) {
@@ -1771,6 +1827,7 @@ function renderHistoryList() {
 async function deleteModule(id) {
   if (!confirm('Delete this module? This cannot be undone.')) return;
   appState.modules = appState.modules.filter(m => m.id !== id);
+  addDeletedId('modules', id);
   if (!demoMode) { try { await db.collection('users').doc(currentUser.uid).collection('modules').doc(id).delete(); } catch(e){} }
   saveLocalData(); renderHistoryList(); updateDashboardStats();
   showToast('🗑️ Module deleted', 'success');
@@ -2176,6 +2233,7 @@ function renderSummaryHistoryList(){
 async function deleteSummary(id){
   if(!confirm('Delete this lesson summary?')) return;
   appState.summaries=appState.summaries.filter(s=>s.id!==id);
+  addDeletedId('summaries', id);
   if(!demoMode){ try{ await db.collection('users').doc(currentUser.uid).collection('summaries').doc(id).delete(); }catch(e){} }
   saveLocalData(); renderSummaryHistoryList(); showToast('🗑️ Deleted','success');
 }
