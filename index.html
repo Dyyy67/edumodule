@@ -440,6 +440,31 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
             </div>
 
             <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🔤</span> Typography</div>
+              <div class="gen-body">
+                <div class="field-group">
+                  <label>Font Style</label>
+                  <select id="fontFamilySelect" onchange="updateFontFamily(this.value)">
+                    <option value="'Nunito',sans-serif">Nunito (default)</option>
+                    <option value="'Fredoka One',cursive">Fredoka One (playful)</option>
+                    <option value="Arial,sans-serif">Arial</option>
+                    <option value="'Times New Roman',serif">Times New Roman</option>
+                    <option value="Georgia,serif">Georgia</option>
+                    <option value="'Comic Sans MS',cursive">Comic Sans MS</option>
+                    <option value="Verdana,sans-serif">Verdana</option>
+                    <option value="'Courier New',monospace">Courier New</option>
+                    <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+                    <option value="Tahoma,sans-serif">Tahoma</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label>Font Size: <span id="fontSizeVal">13</span>px</label>
+                  <input type="range" id="fontSizeRange" min="10" max="22" value="13" step="1" oninput="updateFontSize(this.value)" style="width:100%">
+                </div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
               <div class="gen-panel-header"><span class="ph-icon">🎨</span> Page Border Style</div>
               <div class="gen-body">
                 <div class="border-grid" id="borderGrid"></div>
@@ -560,6 +585,31 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
                   <input type="file" id="sumFileInput" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx" style="display:none" onchange="sumFileSelect(event)">
                 </div>
                 <div class="file-chips" id="sumFileChips"></div>
+              </div>
+            </div>
+
+            <div class="gen-panel" style="margin-bottom:16px">
+              <div class="gen-panel-header"><span class="ph-icon">🔤</span> Typography</div>
+              <div class="gen-body">
+                <div class="field-group">
+                  <label>Font Style</label>
+                  <select id="sumFontFamilySelect" onchange="updateSumFontFamily(this.value)">
+                    <option value="'Nunito',sans-serif">Nunito (default)</option>
+                    <option value="'Fredoka One',cursive">Fredoka One (playful)</option>
+                    <option value="Arial,sans-serif">Arial</option>
+                    <option value="'Times New Roman',serif">Times New Roman</option>
+                    <option value="Georgia,serif">Georgia</option>
+                    <option value="'Comic Sans MS',cursive">Comic Sans MS</option>
+                    <option value="Verdana,sans-serif">Verdana</option>
+                    <option value="'Courier New',monospace">Courier New</option>
+                    <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+                    <option value="Tahoma,sans-serif">Tahoma</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label>Font Size: <span id="sumFontSizeVal">13</span>px</label>
+                  <input type="range" id="sumFontSizeRange" min="10" max="22" value="13" step="1" oninput="updateSumFontSize(this.value)" style="width:100%">
+                </div>
               </div>
             </div>
 
@@ -719,13 +769,14 @@ if (window.pdfjsLib) {
 }
 
 // ==================== STATE ====================
-let appState = { apiKeys: [], modules: [], activeApiKey: '', selectedBorder: 0, lastModuleData: null, userPrefs: {}, summaries: [], sumSelectedBorder: 0, lastSummaryData: null };
+let appState = { apiKeys: [], modules: [], activeApiKey: '', selectedBorder: 1, lastModuleData: null, userPrefs: {}, summaries: [], sumSelectedBorder: 1, lastSummaryData: null, fontFamily: "'Nunito',sans-serif", fontSize: 13, sumFontFamily: "'Nunito',sans-serif", sumFontSize: 13 };
 let currentModuleJSON = null;
 let uploadedFiles = [];
 let genAbort = null;
 
 // ==================== BORDERS ====================
 const BORDERS = [
+  { name: 'No Border',     style: 'repeating-linear-gradient(45deg,#fafbff,#fafbff 6px,#eef0f6 6px,#eef0f6 12px)', type: 'none', color:'transparent', emoji: '🚫' },
   { name: 'Rainbow',       style: 'linear-gradient(45deg,#FF6B9D,#FFD93D,#6BCB77,#6C63FF)', type: 'gradient', color:'#6C63FF' },
   { name: 'Stars',         style: '#6C63FF', emoji: '⭐', type: 'dotted', color:'#6C63FF' },
   { name: 'Flowers',       style: '#FF6B9D', emoji: '🌸', type: 'dotted', color:'#FF6B9D' },
@@ -773,6 +824,14 @@ function randomBorder(){
   showToast('🎨 New border: ' + BORDERS[next].name, 'success');
 }
 
+// ==================== TYPOGRAPHY ====================
+function updateFontFamily(v){ appState.fontFamily = v; if (currentModuleJSON) renderPreview(currentModuleJSON); }
+function updateFontSize(v){ appState.fontSize = parseInt(v,10) || 13; const el=document.getElementById('fontSizeVal'); if(el) el.textContent = appState.fontSize; if (currentModuleJSON) renderPreview(currentModuleJSON); }
+function updateSumFontFamily(v){ appState.sumFontFamily = v; if (currentSummary) renderSummaryPreview(currentSummary); }
+function updateSumFontSize(v){ appState.sumFontSize = parseInt(v,10) || 13; const el=document.getElementById('sumFontSizeVal'); if(el) el.textContent = appState.sumFontSize; if (currentSummary) renderSummaryPreview(currentSummary); }
+
+
+
 // ==================== AUTH ====================
 function switchAuth(mode) {
   document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (mode==='login'&&i===0)||(mode==='register'&&i===1)));
@@ -816,7 +875,7 @@ function friendlyAuthError(e){
 function doLogout() {
   try { localStorage.removeItem('edumodule_demo'); } catch(e){}
   if (demoMode || !auth) {
-    demoMode = false; currentUser = null; appState = { apiKeys: [], modules: [], activeApiKey: '', selectedBorder: 0, lastModuleData: null, userPrefs: {}, summaries: [], sumSelectedBorder: 0, lastSummaryData: null };
+    demoMode = false; currentUser = null; appState = { apiKeys: [], modules: [], activeApiKey: '', selectedBorder: 1, lastModuleData: null, userPrefs: {}, summaries: [], sumSelectedBorder: 1, lastSummaryData: null, fontFamily: "'Nunito',sans-serif", fontSize: 13, sumFontFamily: "'Nunito',sans-serif", sumFontSize: 13 };
     document.getElementById('authScreen').style.display='flex';
     document.getElementById('mainApp').style.display='none';
     return;
@@ -1369,9 +1428,12 @@ function resetSteps(){ for (let i=1;i<=5;i++) setStep(i,''); document.getElement
 function renderPreview(data) {
   const meta = data._meta;
   const border = BORDERS[appState.selectedBorder];
-  const borderStyle = border.type === 'gradient'
-    ? `border:8px solid ${border.color};`
-    : `border:8px ${border.type} ${border.color};`;
+  const borderStyle = border.type === 'none'
+    ? 'border:none;'
+    : (border.type === 'gradient'
+      ? `border:8px solid ${border.color};`
+      : `border:8px ${border.type} ${border.color};`);
+  const fontStyle = `font-family:${appState.fontFamily};font-size:${appState.fontSize}px;`;
 
   const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const objectives = (data.learningObjectives||[]).map(o => `<li>${formatRich(o)}</li>`).join('');
@@ -1397,16 +1459,11 @@ function renderPreview(data) {
   const imgBlock = data.imageDataUrl
     ? `<div style="text-align:center;margin:20px 0">
          <img src="${data.imageDataUrl}" alt="${escapeHtml(data.imagePrompt||'Lesson illustration')}" style="max-width:100%;border-radius:14px;box-shadow:0 4px 18px rgba(108,99,255,.18)">
-         ${data.imagePrompt?`<p style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">${escapeHtml(data.imagePrompt)}</p>`:''}
        </div>`
-    : (data.imagePrompt ? `
-        <div style="text-align:center;margin:20px 0;padding:20px;background:#f8f9ff;border-radius:12px;border:2px dashed #c5cae9">
-          <div style="font-size:48px">🖼️</div>
-          <p style="font-size:12px;color:var(--muted);margin-top:8px">Illustration idea: ${escapeHtml(data.imagePrompt)}</p>
-        </div>` : '');
+    : '';
 
   document.getElementById('previewArea').innerHTML = `
-    <div class="module-preview" style="${borderStyle}">
+    <div class="module-preview" style="${borderStyle}${fontStyle}">
       <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
         <div class="cover-school">${escapeHtml(meta.school)}</div>
         <div class="cover-img">📚</div>
@@ -2123,7 +2180,10 @@ function sumSetStep(msg,sub,pct){
 
 function renderSummaryPreview(data){
   const meta=data._meta||{}; const border=BORDERS[appState.sumSelectedBorder];
-  const borderStyle = border.type==='gradient' ? `border:8px solid ${border.color};` : `border:8px ${border.type} ${border.color};`;
+  const borderStyle = border.type === 'none'
+    ? 'border:none;'
+    : (border.type==='gradient' ? `border:8px solid ${border.color};` : `border:8px ${border.type} ${border.color};`);
+  const fontStyle = `font-family:${appState.sumFontFamily};font-size:${appState.sumFontSize}px;`;
   const vocab=(data.keyVocabulary||[]).map(v=>`<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const sections=(data.sections||[]).map(s=>{
     return `<div class="lesson-section"><h2>${escapeHtml(s.heading||'Section')}</h2>${renderRich(s.content)}</div>`;
@@ -2131,7 +2191,7 @@ function renderSummaryPreview(data){
   const points=(data.keyPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
   const examples=(data.examples||[]).map(e=>`<li>${formatRich(e)}</li>`).join('');
   document.getElementById('sumPreviewArea').innerHTML=`
-    <div class="module-preview" style="${borderStyle}">
+    <div class="module-preview" style="${borderStyle}${fontStyle}">
       <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
         <div class="cover-img">📝</div>
         <div class="cover-title">${escapeHtml(data.title||meta.title||'Lesson Summary')}</div>
