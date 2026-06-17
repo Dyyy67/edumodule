@@ -1544,7 +1544,7 @@ function renderActivitiesHtml(activities) {
   const blocks = activities.map((a, i) => {
     const body = renderActivityItemsHtml(a);
     return `<div class="lesson-section">
-      <h2>${ACT_TYPE_LABEL[a.type]||'🧩'} Activity ${i+1}: ${escapeHtml(a.title||'')}</h2>
+      <h2>${ACT_TYPE_LABEL[a.type]||'🧩'} &nbsp;Activity ${i+1}${a.title ? ': ' + escapeHtml(a.title) : ''}</h2>
       <p style="font-style:italic;font-size:13px;margin-bottom:10px">${escapeHtml(a.instructions||'')}</p>
       ${body}
     </div>`;
@@ -1555,27 +1555,45 @@ function renderActivityItemsHtml(a) {
   const items = a.items || [];
   switch (a.type) {
     case 'check_x':
-      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${escapeHtml(stripLeadNum(String(s)))}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${escapeHtml(stripLeadNum(itemText(s)))}</td></tr>`).join('')}</table>`;
     case 'true_false':
-      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${escapeHtml(stripLeadNum(String(s)))}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${escapeHtml(stripLeadNum(itemText(s)))}</td></tr>`).join('')}</table>`;
     case 'matching': {
-      const left = items.map(p=>stripLeadNum(String(p.left||'')));
-      const right = items.map(p=>stripLeadLetter(String(p.right||'')));
+      const left = items.map(p=>stripLeadNum(itemText(p && p.left)));
+      const right = items.map(p=>stripLeadLetter(itemText(p && p.right)));
       // Shuffle right column so it doesn't line up with left
       const order = right.map((_,i)=>i).sort(()=>Math.random()-0.5);
       return `<table class="activity-table"><tr><th>Column A</th><th>Match</th><th>Column B</th></tr>${left.map((l,i)=>`<tr><td>${i+1}. ${escapeHtml(l)}</td><td style="text-align:center">____</td><td>${String.fromCharCode(65+i)}. ${escapeHtml(right[order[i]]||'')}</td></tr>`).join('')}</table>`;
     }
     case 'draw':
-      return `<div style="border:2px dashed #c5cae9;border-radius:10px;padding:24px;text-align:center;min-height:180px"><p style="font-size:13px;color:var(--muted)">✏️ ${escapeHtml(String(items[0]||'Draw here'))}</p></div>`;
+      return `<div style="border:2px dashed #c5cae9;border-radius:10px;padding:24px;text-align:center;min-height:180px"><p style="font-size:13px;color:var(--muted)">✏️ ${escapeHtml(itemText(items[0])||'Draw here')}</p></div>`;
     case 'cut_paste':
-      const cats = [...new Set(items.map(x=>x.category).filter(Boolean))];
-      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>escapeHtml(stripLeadNum(x.label||''))).join(' • ')}</p>
+      const cats = [...new Set(items.map(x=>x && x.category).filter(Boolean))];
+      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>escapeHtml(stripLeadNum(itemText(x && x.label)))).join(' • ')}</p>
         <table class="activity-table"><tr>${cats.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr><tr>${cats.map(()=>`<td style="height:80px"></td>`).join('')}</tr></table>`;
     case 'multiple_choice':
-      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${escapeHtml(stripLeadNum(q.question||''))}</p>${(q.choices||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${escapeHtml(stripLeadLetter(String(c)))}</p>`).join('')}</div>`).join('');
+      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${escapeHtml(stripLeadNum(itemText(q && q.question)))}</p>${((q&&q.choices)||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${escapeHtml(stripLeadLetter(itemText(c)))}</p>`).join('')}</div>`).join('');
     default:
-      return `<p style="font-size:12px;color:var(--muted)">${items.map(x=>escapeHtml(typeof x==='string'?x:JSON.stringify(x))).join('<br>')}</p>`;
+      return `<p style="font-size:12px;color:var(--muted)">${items.map(x=>escapeHtml(itemText(x))).join('<br>')}</p>`;
   }
+}
+// Normalize an item to a readable string. The AI sometimes returns objects
+// like {statement:"..."} or {text:"..."} instead of a plain string, which
+// previously rendered as "[object Object]". This pulls the most likely
+// text field, or falls back to a JSON dump.
+function itemText(s){
+  if (s == null) return '';
+  if (typeof s === 'string') return s;
+  if (typeof s === 'number' || typeof s === 'boolean') return String(s);
+  if (typeof s === 'object'){
+    const keys = ['statement','text','content','value','item','question','prompt','sentence','label','description','answer'];
+    for (const k of keys){ if (typeof s[k] === 'string' && s[k].trim()) return s[k]; }
+    // last resort: join string values
+    const strVals = Object.values(s).filter(v=>typeof v==='string');
+    if (strVals.length) return strVals.join(' ');
+    try { return JSON.stringify(s); } catch(_) { return ''; }
+  }
+  return String(s);
 }
 // Strip AI-emitted leading numbering like "1.", "2)", "3:" so the renderer's own numbers don't double up
 function stripLeadNum(s){ return String(s||'').replace(/^\s*\d+\s*[\.\)\:\-]\s*/, '').trim(); }
@@ -2074,19 +2092,19 @@ function buildActivitiesDocx(activities, h) {
     const items = a.items || [];
     switch (a.type) {
       case 'check_x':
-        out.push(table(['✓ / ✗', 'Statement'], items.map(s => ['_____', docxClean(s)])));
+        out.push(table(['✓ / ✗', 'Statement'], items.map(s => ['_____', docxClean(itemText(s))])));
         break;
       case 'true_false':
-        out.push(table(['True / False', 'Statement'], items.map(s => ['________', docxClean(s)])));
+        out.push(table(['True / False', 'Statement'], items.map(s => ['________', docxClean(itemText(s))])));
         break;
       case 'matching': {
-        const right = items.map((p,j)=> (items[items.length-1-j]||{}).right || p.right || '');
-        out.push(table(['Column A', 'Match', 'Column B'], items.map((p,j)=>[`${j+1}. ${docxClean(p.left||'')}`, '____', `${String.fromCharCode(65+j)}. ${docxClean(right[j])}`])));
+        const right = items.map((p,j)=> itemText((items[items.length-1-j]||{}).right) || itemText(p && p.right));
+        out.push(table(['Column A', 'Match', 'Column B'], items.map((p,j)=>[`${j+1}. ${docxClean(itemText(p && p.left))}`, '____', `${String.fromCharCode(65+j)}. ${docxClean(right[j])}`])));
         break;
       }
       case 'draw': {
         out.push(new Paragraph({
-          children: [new TextRun({ text: `✏️  ${docxClean(items[0]||'Draw here')}`, bold: true, size: 24, color: T.secondary, font: T.fontHeading })],
+          children: [new TextRun({ text: `✏️  ${docxClean(itemText(items[0])||'Draw here')}`, bold: true, size: 24, color: T.secondary, font: T.fontHeading })],
           spacing: { after: 120 }
         }));
         // Estimated drawing space — a tall framed box
@@ -2094,8 +2112,8 @@ function buildActivitiesDocx(activities, h) {
         break;
       }
       case 'cut_paste': {
-        out.push(para('Labels to cut: ' + items.map(x=>docxClean(x.label||'')).join('  •  '), { bold: true }));
-        const cats = [...new Set(items.map(x=>x.category).filter(Boolean))];
+        out.push(para('Labels to cut: ' + items.map(x=>docxClean(itemText(x && x.label))).join('  •  '), { bold: true }));
+        const cats = [...new Set(items.map(x=>x && x.category).filter(Boolean))];
         if (cats.length) {
           // Tall empty cells under each category for pasting
           const { Table, TableRow, TableCell, WidthType, HeightRule, BorderStyle, convertInchesToTwip } = window.docx;
@@ -2124,15 +2142,15 @@ function buildActivitiesDocx(activities, h) {
           out.push(new Paragraph({
             children: [
               new TextRun({ text: `${j+1}. `, bold: true, color: T.primary, size: 24, font: T.fontHeading }),
-              ...docxRichRuns(q.question||'', { size: 22, bold: true })
+              ...docxRichRuns(itemText(q && q.question), { size: 22, bold: true })
             ],
             spacing: { before: 100, after: 60 }
           }));
-          (q.choices||[]).forEach((c, k) => out.push(para(`   ${String.fromCharCode(65+k)}. ${String(c).replace(/^\s*[A-Da-d]\s*[\.\)\:\-]\s*/, '')}`)));
+          ((q&&q.choices)||[]).forEach((c, k) => out.push(para(`   ${String.fromCharCode(65+k)}. ${itemText(c).replace(/^\s*[A-Da-d]\s*[\.\)\:\-]\s*/, '')}`)));
         });
         break;
       default:
-        items.forEach(x => out.push(para(typeof x === 'string' ? x : JSON.stringify(x))));
+        items.forEach(x => out.push(para(itemText(x))));
     }
     // Spacer between activities
     out.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 160 } }));
