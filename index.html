@@ -194,8 +194,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .api-key-item .ak-actions{display:flex;gap:4px}
 .btn-icon{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;font-size:14px;transition:.1s}
 .btn-icon:hover{background:#eee}
-.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;transform:translateY(80px);transition:.3s;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:340px}
-.toast.show{transform:translateY(0)}
+.toast{position:fixed;bottom:24px;right:24px;background:#333;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;z-index:9999;transform:translateY(120px);opacity:0;pointer-events:none;visibility:hidden;transition:transform .3s ease,opacity .3s ease,visibility 0s linear .3s;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:340px}
+.toast.show{transform:translateY(0);opacity:1;visibility:visible;pointer-events:auto;transition:transform .3s ease,opacity .3s ease,visibility 0s linear 0s}
 .toast.success{background:var(--green)}
 .toast.error{background:var(--secondary)}
 
@@ -1632,65 +1632,270 @@ function renderAnswerKeysHtml(data) {
 }
 
 // ==================== DOCX ====================
+// ==================== DOCX HELPERS (modern kid-friendly) ====================
+// Theme palette (kid-friendly but professional)
+const DOCX_THEME = {
+  fontHeading: 'Comic Sans MS',
+  fontBody: 'Calibri',
+  primary: '6C63FF',   // purple
+  secondary: 'FF6B9D', // pink
+  accent: 'FFD93D',    // yellow
+  green: '6BCB77',
+  orange: 'FF9F43',
+  dark: '1E1B4B',
+  muted: '8892A4',
+  softBg: 'F0F4FF',
+  softPink: 'FFF0F6',
+  softYellow: 'FFFBE6'
+};
+
+// Parse **bold** / *italic* markdown segments into TextRun children.
+// Strips ALL stray asterisks so they never appear in the final docx.
+function docxRichRuns(text, baseOpts = {}) {
+  const TextRun = window.docx.TextRun;
+  const str = String(text == null ? '' : text);
+  const out = [];
+  // Tokenize: **bold**, *italic*, plain
+  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+  let last = 0, m;
+  const push = (chunk, extra) => {
+    if (!chunk) return;
+    out.push(new TextRun({ text: chunk, font: DOCX_THEME.fontBody, size: 22, ...baseOpts, ...extra }));
+  };
+  while ((m = re.exec(str)) !== null) {
+    if (m.index > last) push(str.slice(last, m.index).replace(/\*+/g, ''));
+    if (m[1] != null) push(m[1], { bold: true, color: DOCX_THEME.primary });
+    else if (m[2] != null) push(m[2], { italics: true });
+    last = re.lastIndex;
+  }
+  if (last < str.length) push(str.slice(last).replace(/\*+/g, ''));
+  if (!out.length) push('');
+  return out;
+}
+
+// Split a body of text into a list of Paragraphs.
+// - Lines starting with "- ", "• ", "* ", "✓ " become bullets (real bullet list).
+// - Blank lines create paragraph breaks.
+// - All **markers** are converted to bold runs (asterisks removed).
+function docxBlocks(text, opts = {}) {
+  const { Paragraph } = window.docx;
+  const raw = String(text == null ? '' : text);
+  const lines = raw.split(/\r?\n/);
+  const blocks = [];
+  let buf = [];
+  const flush = () => {
+    if (!buf.length) return;
+    const joined = buf.join(' ').trim();
+    if (joined) {
+      blocks.push(new Paragraph({
+        children: docxRichRuns(joined),
+        alignment: window.docx.AlignmentType.JUSTIFIED,
+        spacing: { after: 120, line: 300 }
+      }));
+    }
+    buf = [];
+  };
+  for (const ln of lines) {
+    const t = ln.trim();
+    if (!t) { flush(); continue; }
+    const bullet = t.match(/^(?:[-•*✓]|\u2022)\s+(.*)$/);
+    if (bullet) {
+      flush();
+      blocks.push(new Paragraph({
+        children: docxRichRuns(bullet[1]),
+        bullet: { level: 0 },
+        spacing: { after: 80, line: 280 }
+      }));
+    } else {
+      buf.push(t);
+    }
+  }
+  flush();
+  if (!blocks.length) blocks.push(new Paragraph({ children: docxRichRuns(''), spacing: { after: 80 } }));
+  return blocks;
+}
+
+// Plain bold paragraph (asterisks stripped)
+function docxClean(text) { return String(text == null ? '' : text).replace(/\*+/g, ''); }
+
+// Empty writing line(s) — for activities that require handwriting answers.
+function docxWritingLines(n, label) {
+  const { Paragraph, TextRun, BorderStyle } = window.docx;
+  const items = [];
+  if (label) items.push(new Paragraph({
+    children: [new TextRun({ text: label, italics: true, color: DOCX_THEME.muted, size: 20, font: DOCX_THEME.fontBody })],
+    spacing: { before: 60, after: 60 }
+  }));
+  for (let i = 0; i < n; i++) {
+    items.push(new Paragraph({
+      children: [new TextRun({ text: '' })],
+      spacing: { before: 0, after: 220 },
+      border: { bottom: { color: '999999', space: 1, style: BorderStyle.SINGLE, size: 6 } }
+    }));
+  }
+  return items;
+}
+
+// Empty drawing/cut-paste box (a tall single cell).
+function docxBlankBox(heightInches, caption) {
+  const { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, HeightRule, BorderStyle, convertInchesToTwip } = window.docx;
+  const border = { style: BorderStyle.DASHED, size: 8, color: DOCX_THEME.primary };
+  const items = [];
+  if (caption) items.push(new Paragraph({
+    children: [new TextRun({ text: caption, italics: true, color: DOCX_THEME.muted, size: 20, font: DOCX_THEME.fontBody })],
+    spacing: { before: 60, after: 60 }
+  }));
+  items.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [ new TableRow({
+      height: { value: convertInchesToTwip(heightInches), rule: HeightRule.EXACT },
+      children: [ new TableCell({
+        children: [ new Paragraph({ children: [new TextRun({ text: '' })] }) ],
+        borders: { top: border, bottom: border, left: border, right: border }
+      })]
+    })]
+  }));
+  items.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 120 } }));
+  return items;
+}
+
 async function exportDocx() {
   if (!currentModuleJSON) return showToast('No module to export!', 'error');
   if (!window.docx || !window.docx.Document) return showToast('docx library failed to load — refresh page', 'error');
   showToast('📄 Building .docx file…', 'success');
 
   const data = currentModuleJSON, meta = data._meta;
-  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, WidthType, convertInchesToTwip } = window.docx;
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, WidthType, BorderStyle, convertInchesToTwip } = window.docx;
+  const T = DOCX_THEME;
 
-  const heading = (text, lvl=1) => new Paragraph({ text, heading: lvl===1?HeadingLevel.HEADING_1:HeadingLevel.HEADING_2, spacing: { before: 200, after: 100 } });
-  const para = (text, opts={}) => new Paragraph({ children: [new TextRun({ text: String(text||''), size: 24, ...opts })], spacing: { after: 100 } });
+  // Section heading with colored shading bar (modern kid-style)
+  const heading = (text, lvl = 1) => {
+    const isH1 = lvl === 1;
+    return new Paragraph({
+      children: [new TextRun({
+        text: docxClean(text),
+        bold: true,
+        color: 'FFFFFF',
+        size: isH1 ? 32 : 26,
+        font: T.fontHeading
+      })],
+      shading: { type: 'clear', fill: isH1 ? T.primary : T.secondary, color: 'auto' },
+      spacing: { before: isH1 ? 280 : 200, after: isH1 ? 140 : 100 },
+      indent: { left: 120, right: 120 },
+      border: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        left: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        right: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary }
+      }
+    });
+  };
+
+  const para = (text, opts = {}) => new Paragraph({
+    children: docxRichRuns(text, opts),
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { after: 120, line: 300 }
+  });
+
+  const bullet = (text, marker = '✓') => new Paragraph({
+    children: [
+      new TextRun({ text: marker + '  ', bold: true, color: T.green, size: 24, font: T.fontHeading }),
+      ...docxRichRuns(text)
+    ],
+    spacing: { after: 100, line: 300 },
+    indent: { left: 240, hanging: 240 }
+  });
+
   const table = (headers, rows) => new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
       new TableRow({ tableHeader: true, children: headers.map(h => new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: String(h), bold: true, color: 'FFFFFF', size: 22 })] })],
-        shading: { fill: '6C63FF' }
+        children: [new Paragraph({ children: [new TextRun({ text: docxClean(h), bold: true, color: 'FFFFFF', size: 22, font: T.fontHeading })] })],
+        shading: { fill: T.primary }
       })) }),
       ...rows.map((row, ri) => new TableRow({
         children: row.map(cell => new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: String(cell), size: 20 })] })],
-          shading: ri % 2 === 1 ? { fill: 'F0F4FF' } : undefined
+          children: [new Paragraph({ children: docxRichRuns(cell, { size: 22 }) })],
+          shading: ri % 2 === 1 ? { fill: T.softBg } : undefined
         }))
       }))
     ]
   });
 
+  const helpers = { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, convertInchesToTwip, heading, para, bullet, table, T };
+
+  // Cover block
+  const cover = [
+    new Paragraph({
+      children: [new TextRun({ text: docxClean((meta.school||'').toUpperCase()), bold: true, size: 24, color: T.dark, font: T.fontBody })],
+      alignment: AlignmentType.CENTER, spacing: { after: 100 }
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: docxClean(meta.title), bold: true, size: 52, color: T.primary, font: T.fontHeading })],
+      alignment: AlignmentType.CENTER, spacing: { after: 80 }
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: `${docxClean(meta.subject)}  •  Grade ${docxClean(meta.grade)}`, size: 28, color: T.secondary, bold: true, font: T.fontHeading })],
+      alignment: AlignmentType.CENTER, spacing: { after: 200 }
+    }),
+    table(['👩‍🏫 Teacher','📅 Quarter / Week','📚 School Year','🏷️ Section'],
+          [[meta.teacher||'—', meta.quarter||'—', meta.year||'—', meta.section||'—']]),
+    new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 160 } }),
+  ];
+
+  const objectives = (data.learningObjectives || []).map(o => bullet(o, '🎯'));
+  const summaryPts  = (data.summaryPoints || []).map(p => bullet(p, '⭐'));
+
   const children = [
-    new Paragraph({ children: [new TextRun({ text: (meta.school||'').toUpperCase(), bold: true, size: 28, color: '1E1B4B' })], alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: ' ', size: 24 })] }),
-    new Paragraph({ children: [new TextRun({ text: meta.title, bold: true, size: 56, color: '6C63FF' })], alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: `${meta.subject} | Grade ${meta.grade}`, size: 32, color: 'FF6B9D', bold: true })], alignment: AlignmentType.CENTER }),
-    new Paragraph({ children: [new TextRun({ text: ' ', size: 24 })] }),
-    table(['Teacher','Quarter/Week','School Year','Section'], [[meta.teacher, meta.quarter, meta.year, meta.section || '—']]),
-    new Paragraph({ children: [new TextRun({ text: ' ', size: 24 })] }),
+    ...cover,
     heading('🎯 Learning Objectives'),
-    ...(data.learningObjectives||[]).map(o => para('• ' + o)),
+    ...(objectives.length ? objectives : [para('—')]),
     heading("🌟 Let's Get Started!"),
-    para(data.motivationActivity||''),
-    ...((data.keyVocabulary||[]).length ? [ heading('📖 Key Vocabulary'), table(['Word','Meaning'], (data.keyVocabulary||[]).map(v => [v.word||'', v.definition||''])) ] : []),
+    ...docxBlocks(data.motivationActivity || ''),
+    ...((data.keyVocabulary || []).length ? [
+      heading('📖 Key Vocabulary'),
+      table(['Word','Meaning'], (data.keyVocabulary || []).map(v => [v.word || '', v.definition || '']))
+    ] : []),
     heading('📝 Introduction'),
-    para(data.lessonIntro||''),
-    ...(data.mainContent||[]).flatMap(s => [
-      heading(s.sectionTitle||'Section', 2),
-      para(s.content||''),
+    ...docxBlocks(data.lessonIntro || ''),
+    ...(data.mainContent || []).flatMap(s => [
+      heading(s.sectionTitle || 'Section', 2),
+      ...docxBlocks(s.content || ''),
       ...(s.activity ? [
-        new Paragraph({ children: [new TextRun({ text: `📌 Activity: ${s.activity.title||''}`, bold: true, size: 24, color: 'FF6B9D' })], spacing: { before: 120, after: 80 } }),
-        para(s.activity.instructions||''),
-        ...((s.activity.tableHeaders && s.activity.tableHeaders.length) ? [table(s.activity.tableHeaders, s.activity.tableRows||[])] : [])
+        new Paragraph({
+          children: [new TextRun({ text: `📌  Activity: ${docxClean(s.activity.title||'')}`, bold: true, size: 24, color: T.secondary, font: T.fontHeading })],
+          spacing: { before: 140, after: 80 },
+          shading: { type: 'clear', fill: T.softPink, color: 'auto' },
+          indent: { left: 120, right: 120 }
+        }),
+        ...docxBlocks(s.activity.instructions || ''),
+        ...((s.activity.tableHeaders && s.activity.tableHeaders.length) ? [table(s.activity.tableHeaders, s.activity.tableRows || [])] : [])
       ] : [])
     ]),
     heading('⭐ Lesson Summary'),
-    ...(data.summaryPoints||[]).map(p => para('✓ ' + p)),
-    ...buildActivitiesDocx(data.activities||[], { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, heading, para, table }),
+    ...(summaryPts.length ? summaryPts : [para('—')]),
+    ...buildActivitiesDocx(data.activities || [], helpers),
     heading('✏️ Check Your Understanding'),
-    ...(data.assessmentQuestions||[]).map((q,i) => para(`${i+1}. ${q}`)),
-    ...buildAnswerKeyDocx(data, { Paragraph, TextRun, AlignmentType, heading, para, table })
+    ...(data.assessmentQuestions || []).flatMap((q, i) => [
+      new Paragraph({
+        children: [
+          new TextRun({ text: `${i + 1}. `, bold: true, color: T.primary, size: 24, font: T.fontHeading }),
+          ...docxRichRuns(q, { size: 22 })
+        ],
+        spacing: { before: 120, after: 60, line: 300 }
+      }),
+      // Estimated handwriting space for sentence answers (2 lines)
+      ...docxWritingLines(2)
+    ]),
+    ...buildAnswerKeyDocx(data, helpers)
   ];
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: T.fontBody, size: 22 }, paragraph: { spacing: { line: 280 } } }
+      }
+    },
     sections: [{
       properties: {
         page: {
@@ -1861,72 +2066,105 @@ function generateAnotherModule(){
 // ==================== ACTIVITY/ANSWER-KEY DOCX HELPERS ====================
 function buildActivitiesDocx(activities, h) {
   if (!activities || !activities.length) return [];
-  const { Paragraph, TextRun, heading, para, table } = h;
+  const { Paragraph, TextRun, heading, para, table, T } = h;
   const out = [];
   activities.forEach((a, i) => {
-    out.push(heading(`${ACT_TYPE_LABEL[a.type]||'🧩'} Activity ${i+1}: ${a.title||''}`, 2));
+    out.push(heading(`${ACT_TYPE_LABEL[a.type]||'🧩'} Activity ${i+1}: ${docxClean(a.title||'')}`, 2));
     if (a.instructions) out.push(para(a.instructions, { italics: true }));
     const items = a.items || [];
     switch (a.type) {
       case 'check_x':
-        out.push(table(['✓ / ✗', 'Statement'], items.map(s => ['_____', String(s)])));
+        out.push(table(['✓ / ✗', 'Statement'], items.map(s => ['_____', docxClean(s)])));
         break;
       case 'true_false':
-        out.push(table(['True / False', 'Statement'], items.map(s => ['________', String(s)])));
+        out.push(table(['True / False', 'Statement'], items.map(s => ['________', docxClean(s)])));
         break;
       case 'matching': {
         const right = items.map((p,j)=> (items[items.length-1-j]||{}).right || p.right || '');
-        out.push(table(['Column A', 'Match', 'Column B'], items.map((p,j)=>[`${j+1}. ${p.left||''}`, '____', `${String.fromCharCode(65+j)}. ${right[j]}`])));
+        out.push(table(['Column A', 'Match', 'Column B'], items.map((p,j)=>[`${j+1}. ${docxClean(p.left||'')}`, '____', `${String.fromCharCode(65+j)}. ${docxClean(right[j])}`])));
         break;
       }
-      case 'draw':
-        out.push(para(`✏️ ${items[0]||'Draw here'}`));
-        out.push(para(' ')); out.push(para(' ')); out.push(para(' ')); out.push(para(' '));
+      case 'draw': {
+        out.push(new Paragraph({
+          children: [new TextRun({ text: `✏️  ${docxClean(items[0]||'Draw here')}`, bold: true, size: 24, color: T.secondary, font: T.fontHeading })],
+          spacing: { after: 120 }
+        }));
+        // Estimated drawing space — a tall framed box
+        docxBlankBox(4.5, 'Draw inside the box below:').forEach(x => out.push(x));
         break;
+      }
       case 'cut_paste': {
-        out.push(para('Labels: ' + items.map(x=>x.label||'').join(' • ')));
+        out.push(para('Labels to cut: ' + items.map(x=>docxClean(x.label||'')).join('  •  '), { bold: true }));
         const cats = [...new Set(items.map(x=>x.category).filter(Boolean))];
-        if (cats.length) out.push(table(cats, [cats.map(()=>' ')]));
+        if (cats.length) {
+          // Tall empty cells under each category for pasting
+          const { Table, TableRow, TableCell, WidthType, HeightRule, BorderStyle, convertInchesToTwip } = window.docx;
+          const border = { style: BorderStyle.DASHED, size: 6, color: T.primary };
+          out.push(new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({ tableHeader: true, children: cats.map(c => new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: docxClean(c), bold: true, color: 'FFFFFF', size: 22, font: T.fontHeading })] })],
+                shading: { fill: T.primary }
+              })) }),
+              new TableRow({
+                height: { value: convertInchesToTwip(3.2), rule: HeightRule.EXACT },
+                children: cats.map(()=> new TableCell({
+                  children: [new Paragraph({ children: [new TextRun({ text: '' })] })],
+                  borders: { top: border, bottom: border, left: border, right: border }
+                }))
+              })
+            ]
+          }));
+        }
         break;
       }
       case 'multiple_choice':
         items.forEach((q, j) => {
-          out.push(para(`${j+1}. ${q.question||''}`, { bold: true }));
+          out.push(new Paragraph({
+            children: [
+              new TextRun({ text: `${j+1}. `, bold: true, color: T.primary, size: 24, font: T.fontHeading }),
+              ...docxRichRuns(q.question||'', { size: 22, bold: true })
+            ],
+            spacing: { before: 100, after: 60 }
+          }));
           (q.choices||[]).forEach((c, k) => out.push(para(`   ${String.fromCharCode(65+k)}. ${String(c).replace(/^\s*[A-Da-d]\s*[\.\)\:\-]\s*/, '')}`)));
         });
         break;
       default:
         items.forEach(x => out.push(para(typeof x === 'string' ? x : JSON.stringify(x))));
     }
+    // Spacer between activities
+    out.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 160 } }));
   });
   return out;
 }
 function buildAnswerKeyDocx(data, h) {
   const include = data._meta && data._meta.includeAnswerKey !== false;
   if (!include) return [];
-  const { Paragraph, TextRun, AlignmentType, heading, para } = h;
+  const { Paragraph, TextRun, AlignmentType, heading, para, T } = h;
   const activities = data.activities || [];
   const assessKey = data.assessmentAnswerKey || [];
   if (!activities.length && !assessKey.length) return [];
   const out = [
     new Paragraph({ children: [new TextRun({ text: '', break: 1 })] }),
-    new Paragraph({ children: [new TextRun({ text: '🔑 TEACHER\'S ANSWER KEY', bold: true, size: 36, color: 'FF9F43' })], alignment: AlignmentType.CENTER, spacing: { before: 400, after: 100 }, pageBreakBefore: true }),
-    new Paragraph({ children: [new TextRun({ text: 'For teacher use only — remove before printing student copies.', italics: true, size: 20, color: '8892A4' })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
+    new Paragraph({ children: [new TextRun({ text: '🔑 TEACHER\'S ANSWER KEY', bold: true, size: 36, color: T.orange, font: T.fontHeading })], alignment: AlignmentType.CENTER, spacing: { before: 400, after: 100 }, pageBreakBefore: true }),
+    new Paragraph({ children: [new TextRun({ text: 'For teacher use only — remove before printing student copies.', italics: true, size: 20, color: T.muted, font: T.fontBody })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
   ];
   activities.forEach((a, i) => {
-    out.push(heading(`${ACT_TYPE_LABEL[a.type]||''} Activity ${i+1}: ${a.title||''}`, 2));
+    out.push(heading(`${ACT_TYPE_LABEL[a.type]||''} Activity ${i+1}: ${docxClean(a.title||'')}`, 2));
     (a.answerKey||[]).forEach((ans, j) => {
       let s;
       if (typeof ans === 'string' || typeof ans === 'number') s = String(ans);
       else if (ans && ans.left && ans.right) s = `${ans.left} → ${ans.right}`;
       else if (ans && ans.label) s = `${ans.label} → ${ans.correctCategory||''}`;
       else s = JSON.stringify(ans);
-      out.push(para(`${j+1}. ${s}`));
+      out.push(para(`${j+1}. ${docxClean(s)}`));
     });
   });
   if (assessKey.length) {
     out.push(heading('✏️ Assessment Answers', 2));
-    assessKey.forEach((a, i) => out.push(para(`${i+1}. ${a}`)));
+    assessKey.forEach((a, i) => out.push(para(`${i+1}. ${docxClean(a)}`)));
   }
   return out;
 }
@@ -2013,9 +2251,18 @@ function showPanel(name) {
 // ==================== TOAST ====================
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast show ' + type;
+  if (!t) return;
+  t.textContent = msg;
+  // force reflow so re-show animates cleanly
+  t.classList.remove('show'); void t.offsetWidth;
+  t.className = 'toast show ' + type;
+  // close any open native dropdown/select that might overlap the toast
+  try { if (document.activeElement && document.activeElement.tagName === 'SELECT') document.activeElement.blur(); } catch(_){}
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => t.classList.remove('show'), 3000);
+  showToast._t = setTimeout(() => {
+    t.classList.remove('show');
+    t.className = 'toast';
+  }, 3000);
 }
 
 // ==================== SUBJECT MGMT ====================
@@ -2324,24 +2571,74 @@ async function exportSummaryDocx(){
   if(!currentSummary) return showToast('Generate a summary first','error');
   if(!window.docx||!window.docx.Document) return showToast('docx library failed to load','error');
   const data=currentSummary, meta=data._meta||{};
-  const { Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,AlignmentType,HeadingLevel,WidthType,convertInchesToTwip } = window.docx;
-  const heading=(t,l=1)=>new Paragraph({text:t,heading:l===1?HeadingLevel.HEADING_1:HeadingLevel.HEADING_2,spacing:{before:200,after:100}});
-  const para=(t,o={})=>new Paragraph({children:[new TextRun({text:String(t||''),size:24,...o})],spacing:{after:100}});
-  const table=(headers,rows)=>new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-    new TableRow({tableHeader:true,children:headers.map(h=>new TableCell({children:[new Paragraph({children:[new TextRun({text:String(h),bold:true,color:'FFFFFF',size:22})]})],shading:{fill:'6C63FF'}}))}),
-    ...rows.map((row,ri)=>new TableRow({children:row.map(cell=>new TableCell({children:[new Paragraph({children:[new TextRun({text:String(cell),size:20})]})],shading:ri%2===1?{fill:'F0F4FF'}:undefined}))}))
-  ]});
-  const children=[
-    new Paragraph({children:[new TextRun({text:data.title||meta.title||'Lesson Summary',bold:true,size:48,color:'6C63FF'})],alignment:AlignmentType.CENTER}),
-    new Paragraph({children:[new TextRun({text:`${meta.subject||''} | Grade ${meta.grade||''}`,size:28,color:'FF6B9D',bold:true})],alignment:AlignmentType.CENTER}),
-    para(' '),
-    heading('📝 Introduction'), para(data.introduction||''),
-    ...((data.keyVocabulary||[]).length?[heading('📖 Key Vocabulary'),table(['Word','Meaning'],(data.keyVocabulary||[]).map(v=>[v.word||'',v.definition||'']))]:[]),
-    ...(data.sections||[]).flatMap(s=>[heading(s.heading||'Section',2), ...String(s.content||'').split(/\n\n+/).map(p=>para(p))]),
-    ...((data.keyPoints||[]).length?[heading('⭐ Key Points'),...(data.keyPoints||[]).map(p=>para('✓ '+p))]:[]),
-    ...((data.examples||[]).length?[heading('💡 Examples'),...(data.examples||[]).map(e=>para('• '+e))]:[])
+  const { Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,AlignmentType,WidthType,BorderStyle,convertInchesToTwip } = window.docx;
+  const T = DOCX_THEME;
+
+  const heading = (text, lvl = 1) => {
+    const isH1 = lvl === 1;
+    return new Paragraph({
+      children: [new TextRun({ text: docxClean(text), bold: true, color: 'FFFFFF', size: isH1?32:26, font: T.fontHeading })],
+      shading: { type: 'clear', fill: isH1 ? T.primary : T.secondary, color: 'auto' },
+      spacing: { before: isH1 ? 280 : 200, after: isH1 ? 140 : 100 },
+      indent: { left: 120, right: 120 },
+      border: {
+        top:    { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        left:   { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        right:  { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary }
+      }
+    });
+  };
+  const para = (text) => new Paragraph({
+    children: docxRichRuns(text),
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { after: 120, line: 300 }
+  });
+  const bullet = (text, marker='✓') => new Paragraph({
+    children: [
+      new TextRun({ text: marker + '  ', bold: true, color: T.green, size: 24, font: T.fontHeading }),
+      ...docxRichRuns(text)
+    ],
+    spacing: { after: 100, line: 300 },
+    indent: { left: 240, hanging: 240 }
+  });
+  const table = (headers, rows) => new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({ tableHeader: true, children: headers.map(h => new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: docxClean(h), bold: true, color: 'FFFFFF', size: 22, font: T.fontHeading })] })],
+        shading: { fill: T.primary }
+      })) }),
+      ...rows.map((row, ri) => new TableRow({
+        children: row.map(cell => new TableCell({
+          children: [new Paragraph({ children: docxRichRuns(cell, { size: 22 }) })],
+          shading: ri % 2 === 1 ? { fill: T.softBg } : undefined
+        }))
+      }))
+    ]
+  });
+
+  const children = [
+    new Paragraph({ children:[new TextRun({ text: docxClean(data.title||meta.title||'Lesson Summary'), bold:true, size:48, color:T.primary, font:T.fontHeading })], alignment:AlignmentType.CENTER, spacing:{after:80} }),
+    new Paragraph({ children:[new TextRun({ text:`${docxClean(meta.subject||'')}  •  Grade ${docxClean(meta.grade||'')}`, size:28, color:T.secondary, bold:true, font:T.fontHeading })], alignment:AlignmentType.CENTER, spacing:{after:200} }),
+    heading('📝 Introduction'),
+    ...docxBlocks(data.introduction || ''),
+    ...((data.keyVocabulary||[]).length ? [heading('📖 Key Vocabulary'), table(['Word','Meaning'],(data.keyVocabulary||[]).map(v=>[v.word||'',v.definition||'']))] : []),
+    ...(data.sections||[]).flatMap(s => [ heading(s.heading||'Section', 2), ...docxBlocks(s.content||'') ]),
+    ...((data.keyPoints||[]).length ? [heading('⭐ Key Points'), ...(data.keyPoints||[]).map(p => bullet(p, '⭐'))] : []),
+    ...((data.examples||[]).length ? [heading('💡 Examples'), ...(data.examples||[]).map(e => bullet(e, '💡'))] : [])
   ];
-  const doc=new Document({sections:[{properties:{page:{size:{width:convertInchesToTwip(8.5),height:convertInchesToTwip(13)},margin:{top:convertInchesToTwip(0.5),right:convertInchesToTwip(0.5),bottom:convertInchesToTwip(0.5),left:convertInchesToTwip(0.5)}}},children}]});
+
+  const doc = new Document({
+    styles: { default: { document: { run: { font: T.fontBody, size: 22 }, paragraph: { spacing: { line: 280 } } } } },
+    sections:[{
+      properties:{ page:{
+        size:{ width:convertInchesToTwip(8.5), height:convertInchesToTwip(13) },
+        margin:{ top:convertInchesToTwip(0.5), right:convertInchesToTwip(0.5), bottom:convertInchesToTwip(0.5), left:convertInchesToTwip(0.5) }
+      }},
+      children
+    }]
+  });
   try{
     const blob=await Packer.toBlob(doc); const url=URL.createObjectURL(blob);
     const a=document.createElement('a'); a.href=url;
@@ -2349,7 +2646,7 @@ async function exportSummaryDocx(){
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),2000);
     showToast('✅ Downloaded!','success');
-  }catch(e){ showToast('Failed to build .docx: '+e.message,'error'); }
+  }catch(e){ console.error(e); showToast('Failed to build .docx: '+e.message,'error'); }
 }
 
 async function saveSummary(){
