@@ -255,9 +255,9 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
         </div>
       </div>
       <div style="text-align:right;margin-bottom:12px"><button type="button" style="background:none;border:none;color:var(--primary);font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;font-size:12px" onclick="switchAuth('forgot')">Forgot password?</button></div>
-      <button class="btn btn-primary" onclick="doLogin()">🚀 Sign In</button>
+      <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">🚀 Sign In</button>
       <div class="divider">or</div>
-      <button class="btn btn-google" onclick="doGoogleLogin()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google</button>
+      <button class="btn btn-google" id="googleBtn" onclick="doGoogleLogin()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google</button>
     </div>
     <div id="registerForm" class="hidden">
       <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="Mrs. Santos"></div>
@@ -864,17 +864,32 @@ function switchAuth(mode) {
   document.getElementById('registerForm').classList.toggle('hidden', mode !== 'register');
   document.getElementById('forgotForm').classList.toggle('hidden', mode !== 'forgot');
 }
+function setAuthButtonLoading(btnId, isLoading, loadingText, normalText) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = isLoading;
+  btn.innerHTML = isLoading ? loadingText : normalText;
+}
 async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const pass = document.getElementById('loginPass').value;
   if (!auth) { enterDemoMode(); return; }
   if (!email || !pass) return showAuthError('Enter email and password');
-  try { await auth.signInWithEmailAndPassword(email, pass); }
+  setAuthButtonLoading('loginBtn', true, 'Signing in...', '🚀 Sign In');
+  try {
+    // Clear any account already remembered on this browser before signing in
+    // so another valid user can log in on the same laptop.
+    if (auth.currentUser && auth.currentUser.email !== email) {
+      await auth.signOut();
+    }
+    await auth.signInWithEmailAndPassword(email, pass);
+  }
   catch(e) { showAuthError(friendlyAuthError(e)); }
+  finally { setAuthButtonLoading('loginBtn', false, 'Signing in...', '🚀 Sign In'); }
 }
 async function doRegister() {
   const name = document.getElementById('regName').value.trim() || 'Teacher';
-  const email = document.getElementById('regEmail').value.trim();
+  const email = document.getElementById('regEmail').value.trim().toLowerCase();
   const pass = document.getElementById('regPass').value;
   if (!auth) { enterDemoMode(name); return; }
   if (!email || pass.length < 6) return showAuthError('Valid email and 6+ char password required');
@@ -886,8 +901,15 @@ async function doRegister() {
 }
 async function doGoogleLogin() {
   if (!auth) { enterDemoMode(); return; }
-  try { const p = new firebase.auth.GoogleAuthProvider(); await auth.signInWithPopup(p); }
+  setAuthButtonLoading('googleBtn', true, 'Opening Google...', '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google');
+  try {
+    if (auth.currentUser) await auth.signOut();
+    const p = new firebase.auth.GoogleAuthProvider();
+    p.setCustomParameters({ prompt: 'select_account' });
+    await auth.signInWithPopup(p);
+  }
   catch(e) { showAuthError(friendlyAuthError(e)); }
+  finally { setAuthButtonLoading('googleBtn', false, 'Opening Google...', '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google'); }
 }
 function togglePassword(inputId, btn) {
   const input = document.getElementById(inputId);
@@ -910,11 +932,14 @@ async function doForgotPassword() {
 }
 function friendlyAuthError(e){
   const msg = (e && e.message) || String(e);
+  const code = (e && e.code) || '';
+  if (code.includes('auth/invalid-credential') || msg.includes('invalid-credential')) return 'Login failed. Please retype the email and password for this account.';
   if (msg.includes('user-not-found')) return 'No account with that email.';
   if (msg.includes('wrong-password')) return 'Wrong password.';
   if (msg.includes('email-already-in-use')) return 'Email already registered.';
   if (msg.includes('invalid-email')) return 'Invalid email format.';
   if (msg.includes('weak-password')) return 'Password too weak.';
+  if (msg.includes('too-many-requests')) return 'Too many failed attempts. Please wait a moment or use Forgot password.';
   return msg.replace('Firebase: ','');
 }
 function doLogout() {
