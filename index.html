@@ -43,6 +43,10 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .form-group label{display:block;font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px}
 .form-group input{width:100%;padding:12px 16px;border:2px solid #eee;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;outline:none;transition:.2s}
 .form-group input:focus{border-color:var(--primary)}
+.password-wrap{position:relative}
+.password-wrap input{padding-right:40px}
+.pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.pw-toggle:hover{color:var(--primary)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;cursor:pointer;border:none;transition:.2s;text-decoration:none}
 .btn:disabled{opacity:.6;cursor:not-allowed}
 .btn-primary{background:var(--primary);color:#fff;width:100%}
@@ -242,7 +246,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
     </div>
     <div id="loginForm">
       <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="teacher@school.com"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••"></div>
+      <div class="form-group"><label>Password</label>
+        <div class="password-wrap">
+          <input type="password" id="loginPass" placeholder="••••••••">
+          <button type="button" class="pw-toggle" onclick="togglePassword('loginPass',this)" title="Show password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-bottom:12px"><button type="button" style="background:none;border:none;color:var(--primary);font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;font-size:12px" onclick="switchAuth('forgot')">Forgot password?</button></div>
       <button class="btn btn-primary" onclick="doLogin()">🚀 Sign In</button>
       <div class="divider">or</div>
       <button class="btn btn-google" onclick="doGoogleLogin()"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18"> Continue with Google</button>
@@ -250,8 +262,21 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
     <div id="registerForm" class="hidden">
       <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="Mrs. Santos"></div>
       <div class="form-group"><label>Email</label><input type="email" id="regEmail" placeholder="teacher@school.com"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="regPass" placeholder="Min 6 characters"></div>
+      <div class="form-group"><label>Password</label>
+        <div class="password-wrap">
+          <input type="password" id="regPass" placeholder="Min 6 characters">
+          <button type="button" class="pw-toggle" onclick="togglePassword('regPass',this)" title="Show password">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
       <button class="btn btn-primary" onclick="doRegister()">✨ Create Account</button>
+    </div>
+    <div id="forgotForm" class="hidden">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;text-align:center">Enter your email and we'll send you a reset link.</p>
+      <div class="form-group"><label>Email</label><input type="email" id="forgotEmail" placeholder="teacher@school.com"></div>
+      <button class="btn btn-primary" onclick="doForgotPassword()">📧 Send Reset Link</button>
+      <div style="text-align:center;margin-top:12px"><button type="button" style="background:none;border:none;color:var(--primary);font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;font-size:12px" onclick="switchAuth('login')">Back to Login</button></div>
     </div>
     <div class="demo-hint">No account? <button onclick="enterDemoMode()">Continue as guest (saves locally)</button></div>
   </div>
@@ -837,6 +862,7 @@ function switchAuth(mode) {
   document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', (mode==='login'&&i===0)||(mode==='register'&&i===1)));
   document.getElementById('loginForm').classList.toggle('hidden', mode !== 'login');
   document.getElementById('registerForm').classList.toggle('hidden', mode !== 'register');
+  document.getElementById('forgotForm').classList.toggle('hidden', mode !== 'forgot');
 }
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
@@ -862,6 +888,25 @@ async function doGoogleLogin() {
   if (!auth) { enterDemoMode(); return; }
   try { const p = new firebase.auth.GoogleAuthProvider(); await auth.signInWithPopup(p); }
   catch(e) { showAuthError(friendlyAuthError(e)); }
+}
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.title = show ? 'Hide password' : 'Show password';
+  btn.innerHTML = show
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.78 0 1.53-.09 2.24-.26"/><path d="M2 2l20 20"/></svg>'
+    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+}
+async function doForgotPassword() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  if (!auth) { showAuthError('Auth not available.'); return; }
+  if (!email) return showAuthError('Enter your email address.');
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showAuthError('Reset link sent! Check your inbox.');
+    document.getElementById('forgotEmail').value = '';
+  } catch(e) { showAuthError(friendlyAuthError(e)); }
 }
 function friendlyAuthError(e){
   const msg = (e && e.message) || String(e);
@@ -924,10 +969,26 @@ async function onUserLoggedIn(user) {
 }
 
 // ==================== DATA ====================
+// Per-user localStorage keys so different accounts on the same browser
+// don't see each other's modules/summaries/api keys.
+function userScope(){ return (currentUser && currentUser.uid) ? currentUser.uid : 'anon'; }
+function dataKey(){ return 'edumodule_data_' + userScope(); }
+function deletedKey(kind){ return 'edumodule_deleted_' + kind + '_' + userScope(); }
+
+// One-time cleanup: remove legacy un-namespaced keys that were shared across accounts
+try {
+  localStorage.removeItem('edumodule_data');
+  localStorage.removeItem('edumodule_deleted_modules');
+  localStorage.removeItem('edumodule_deleted_summaries');
+} catch(e){}
+
 async function loadUserData() {
+  // Always reset in-memory state first so the previous account's data
+  // never leaks into the new session.
+  appState.apiKeys = []; appState.modules = []; appState.summaries = []; appState.userPrefs = {};
   if (demoMode) {
     try {
-      const saved = localStorage.getItem('edumodule_data');
+      const saved = localStorage.getItem(dataKey());
       if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; appState.summaries = d.summaries||[]; }
     } catch(e) { console.warn(e); }
     filterDeleted();
@@ -944,9 +1005,9 @@ async function loadUserData() {
       const sums = await db.collection('users').doc(currentUser.uid).collection('summaries').orderBy('createdAt','desc').limit(50).get();
       appState.summaries = sums.docs.map(d => ({id: d.id, ...d.data()}));
     } catch(e){ appState.summaries = []; }
-    // Merge any items that only exist in localStorage (cloud-save fallbacks) so they survive refresh
+    // Merge any items that only exist in this user's localStorage cache
     try {
-      const saved = localStorage.getItem('edumodule_data');
+      const saved = localStorage.getItem(dataKey());
       if (saved) {
         const d = JSON.parse(saved);
         const mIds = new Set(appState.modules.map(m=>m.id));
@@ -960,9 +1021,8 @@ async function loadUserData() {
     populateApiKeyDropdown(); renderHistoryList(); renderSummaryHistoryList();
   } catch(e) {
     console.error('loadUserData', e);
-    // Cloud load failed — fall back to localStorage so user doesn't see an empty list
     try {
-      const saved = localStorage.getItem('edumodule_data');
+      const saved = localStorage.getItem(dataKey());
       if (saved) { const d = JSON.parse(saved); appState.apiKeys = d.apiKeys||[]; appState.modules = d.modules||[]; appState.userPrefs = d.prefs||{}; appState.summaries = d.summaries||[]; }
     } catch(e2){}
     filterDeleted();
@@ -970,16 +1030,17 @@ async function loadUserData() {
   }
 }
 function saveLocalData() {
-  try { localStorage.setItem('edumodule_data', JSON.stringify({ apiKeys: appState.apiKeys, modules: appState.modules, prefs: appState.userPrefs, summaries: appState.summaries })); } catch(e){}
+  if (!currentUser) return; // never write to a shared/anon bucket
+  try { localStorage.setItem(dataKey(), JSON.stringify({ apiKeys: appState.apiKeys, modules: appState.modules, prefs: appState.userPrefs, summaries: appState.summaries })); } catch(e){}
 }
-// Permanently track deleted item IDs so they don't reappear from cloud/local merges on refresh
+// Permanently track deleted item IDs (per user) so they don't reappear from cloud/local merges
 function getDeletedIds(kind){
-  try { return JSON.parse(localStorage.getItem('edumodule_deleted_'+kind) || '[]'); } catch(e){ return []; }
+  try { return JSON.parse(localStorage.getItem(deletedKey(kind)) || '[]'); } catch(e){ return []; }
 }
 function addDeletedId(kind, id){
   try {
     const arr = getDeletedIds(kind);
-    if (!arr.includes(id)) { arr.push(id); localStorage.setItem('edumodule_deleted_'+kind, JSON.stringify(arr)); }
+    if (!arr.includes(id)) { arr.push(id); localStorage.setItem(deletedKey(kind), JSON.stringify(arr)); }
   } catch(e){}
 }
 function filterDeleted(){
