@@ -1737,21 +1737,70 @@ function renderAnswerKeysHtml(data) {
 
 // ==================== DOCX ====================
 // ==================== DOCX HELPERS (modern kid-friendly) ====================
-// Theme palette (kid-friendly but professional)
-const DOCX_THEME = {
-  fontHeading: 'Comic Sans MS',
-  fontBody: 'Calibri',
-  primary: '6C63FF',   // purple
-  secondary: 'FF6B9D', // pink
-  accent: 'FFD93D',    // yellow
-  green: '6BCB77',
-  orange: 'FF9F43',
-  dark: '1E1B4B',
-  muted: '8892A4',
-  softBg: 'F0F4FF',
-  softPink: 'FFF0F6',
-  softYellow: 'FFFBE6'
+// Theme catalog — pick one before export. Each theme has its own
+// fonts + color palette. Gradient bars are simulated using a multi-cell
+// table that transitions primary -> secondary -> accent (Word .docx
+// has no native CSS gradient, so we fake it with adjacent shaded cells).
+const DOCX_THEMES = {
+  purple_pop:    { name:'Purple Pop',     emoji:'💜', fontHeading:'Comic Sans MS', fontBody:'Calibri',     primary:'6C63FF', secondary:'FF6B9D', accent:'FFD93D', green:'6BCB77', orange:'FF9F43', dark:'1E1B4B', muted:'8892A4', softBg:'F0F4FF', softPink:'FFF0F6', softYellow:'FFFBE6', gradient:true },
+  ocean_breeze:  { name:'Ocean Breeze',   emoji:'🌊', fontHeading:'Trebuchet MS',  fontBody:'Calibri',     primary:'0EA5E9', secondary:'06B6D4', accent:'FACC15', green:'10B981', orange:'F59E0B', dark:'0C4A6E', muted:'64748B', softBg:'E0F2FE', softPink:'CFFAFE', softYellow:'FEF9C3', gradient:true },
+  sunset_glow:   { name:'Sunset Glow',    emoji:'🌅', fontHeading:'Verdana',       fontBody:'Calibri',     primary:'F97316', secondary:'EF4444', accent:'FACC15', green:'84CC16', orange:'FB923C', dark:'7C2D12', muted:'78716C', softBg:'FFF7ED', softPink:'FEE2E2', softYellow:'FEF9C3', gradient:true },
+  forest_fresh: { name:'Forest Fresh',   emoji:'🌳', fontHeading:'Georgia',       fontBody:'Calibri',     primary:'16A34A', secondary:'65A30D', accent:'FACC15', green:'22C55E', orange:'F59E0B', dark:'14532D', muted:'6B7280', softBg:'DCFCE7', softPink:'ECFCCB', softYellow:'FEF9C3', gradient:true },
+  berry_burst:   { name:'Berry Burst',    emoji:'🍇', fontHeading:'Comic Sans MS', fontBody:'Calibri',     primary:'DB2777', secondary:'9333EA', accent:'F59E0B', green:'10B981', orange:'F97316', dark:'581C87', muted:'71717A', softBg:'FCE7F3', softPink:'FAE8FF', softYellow:'FEF3C7', gradient:true },
+  sky_candy:     { name:'Sky Candy',      emoji:'☁️', fontHeading:'Trebuchet MS',  fontBody:'Calibri',     primary:'38BDF8', secondary:'A78BFA', accent:'FBBF24', green:'34D399', orange:'FB923C', dark:'1E3A8A', muted:'94A3B8', softBg:'E0F2FE', softPink:'EDE9FE', softYellow:'FEF3C7', gradient:true },
+  mint_choco:    { name:'Mint Choco',     emoji:'🍫', fontHeading:'Georgia',       fontBody:'Calibri',     primary:'10B981', secondary:'6366F1', accent:'F59E0B', green:'34D399', orange:'F97316', dark:'064E3B', muted:'6B7280', softBg:'D1FAE5', softPink:'E0E7FF', softYellow:'FEF3C7', gradient:true },
+  coral_reef:    { name:'Coral Reef',     emoji:'🐠', fontHeading:'Tahoma',        fontBody:'Calibri',     primary:'FB7185', secondary:'2DD4BF', accent:'FBBF24', green:'4ADE80', orange:'FB923C', dark:'9F1239', muted:'64748B', softBg:'FFE4E6', softPink:'CCFBF1', softYellow:'FEF3C7', gradient:true },
+  royal_gold:    { name:'Royal Gold',     emoji:'👑', fontHeading:'Georgia',       fontBody:'Cambria',     primary:'1E40AF', secondary:'CA8A04', accent:'F59E0B', green:'15803D', orange:'B45309', dark:'1E3A8A', muted:'78716C', softBg:'DBEAFE', softPink:'FEF3C7', softYellow:'FEF9C3', gradient:true },
+  cherry_blossom:{ name:'Cherry Blossom', emoji:'🌸', fontHeading:'Comic Sans MS', fontBody:'Calibri',     primary:'F472B6', secondary:'FB7185', accent:'FCD34D', green:'86EFAC', orange:'FB923C', dark:'9D174D', muted:'A1A1AA', softBg:'FCE7F3', softPink:'FFE4E6', softYellow:'FEF9C3', gradient:true },
+  midnight_neon: { name:'Midnight Neon',  emoji:'🌌', fontHeading:'Verdana',       fontBody:'Calibri',     primary:'7C3AED', secondary:'22D3EE', accent:'F472B6', green:'34D399', orange:'FB923C', dark:'1E1B4B', muted:'A1A1AA', softBg:'EDE9FE', softPink:'CFFAFE', softYellow:'FCE7F3', gradient:true },
+  earth_tone:    { name:'Earth Tone',     emoji:'🍂', fontHeading:'Georgia',       fontBody:'Cambria',     primary:'92400E', secondary:'B45309', accent:'65A30D', green:'84CC16', orange:'D97706', dark:'78350F', muted:'78716C', softBg:'FEF3C7', softPink:'FED7AA', softYellow:'ECFCCB', gradient:true },
+  bubblegum:     { name:'Bubblegum',      emoji:'🍬', fontHeading:'Comic Sans MS', fontBody:'Calibri',     primary:'EC4899', secondary:'F472B6', accent:'FCD34D', green:'34D399', orange:'FB923C', dark:'831843', muted:'A1A1AA', softBg:'FCE7F3', softPink:'FBCFE8', softYellow:'FEF9C3', gradient:true },
+  tropical:      { name:'Tropical',       emoji:'🌴', fontHeading:'Trebuchet MS',  fontBody:'Calibri',     primary:'14B8A6', secondary:'F59E0B', accent:'EF4444', green:'22C55E', orange:'FB923C', dark:'134E4A', muted:'64748B', softBg:'CCFBF1', softPink:'FEF3C7', softYellow:'FEE2E2', gradient:true },
+  lavender_dream:{ name:'Lavender Dream', emoji:'💐', fontHeading:'Georgia',       fontBody:'Calibri',     primary:'A78BFA', secondary:'C4B5FD', accent:'FBCFE8', green:'86EFAC', orange:'FCD34D', dark:'4C1D95', muted:'A1A1AA', softBg:'EDE9FE', softPink:'FCE7F3', softYellow:'FEF9C3', gradient:true },
+  fire_ice:      { name:'Fire & Ice',     emoji:'🔥', fontHeading:'Verdana',       fontBody:'Calibri',     primary:'DC2626', secondary:'2563EB', accent:'FACC15', green:'10B981', orange:'F97316', dark:'7F1D1D', muted:'64748B', softBg:'FEE2E2', softPink:'DBEAFE', softYellow:'FEF9C3', gradient:true },
+  classic_mono:  { name:'Classic Mono',   emoji:'📜', fontHeading:'Georgia',       fontBody:'Cambria',     primary:'1F2937', secondary:'4B5563', accent:'9CA3AF', green:'10B981', orange:'F59E0B', dark:'111827', muted:'6B7280', softBg:'F3F4F6', softPink:'E5E7EB', softYellow:'F9FAFB', gradient:false }
 };
+let DOCX_THEME = DOCX_THEMES.purple_pop;
+
+// Picker modal — shown before export so the user chooses a design every time.
+function pickDocxTheme(){
+  return new Promise(resolve=>{
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:20px;padding:24px;max-width:880px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 25px 70px rgba(0,0,0,.3)';
+    let cards = Object.entries(DOCX_THEMES).map(([key,t])=>{
+      const grad = `linear-gradient(135deg,#${t.primary} 0%,#${t.secondary} 55%,#${t.accent} 100%)`;
+      return `<button data-key="${key}" style="all:unset;cursor:pointer;border-radius:14px;overflow:hidden;border:2px solid #eee;transition:.2s;display:flex;flex-direction:column;background:#fff" onmouseover="this.style.borderColor='#6C63FF';this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 24px rgba(0,0,0,.15)'" onmouseout="this.style.borderColor='#eee';this.style.transform='';this.style.boxShadow=''">
+        <div style="height:70px;background:${grad}"></div>
+        <div style="padding:10px 12px">
+          <div style="font-weight:800;font-size:14px;color:#1E1B4B">${t.emoji} ${t.name}</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <span style="width:18px;height:18px;border-radius:6px;background:#${t.primary}"></span>
+            <span style="width:18px;height:18px;border-radius:6px;background:#${t.secondary}"></span>
+            <span style="width:18px;height:18px;border-radius:6px;background:#${t.accent}"></span>
+            <span style="width:18px;height:18px;border-radius:6px;background:#${t.dark}"></span>
+          </div>
+          <div style="font-size:11px;color:#8892A4;margin-top:6px;font-family:${t.fontHeading}">${t.fontHeading}</div>
+        </div>
+      </button>`;
+    }).join('');
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <h2 style="font-family:'Fredoka One',sans-serif;color:#6C63FF;font-size:24px;margin:0">🎨 Pick a Design</h2>
+          <p style="color:#8892A4;font-size:13px;margin-top:4px">Choose a theme for your .docx — fonts, colors and gradient bars are all unique.</p>
+        </div>
+        <button id="docxThemeCancel" style="all:unset;cursor:pointer;background:#F3F4F6;color:#374151;font-weight:700;padding:8px 16px;border-radius:10px;font-size:13px">Cancel</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:18px">${cards}</div>`;
+    overlay.appendChild(box); document.body.appendChild(overlay);
+    box.querySelector('#docxThemeCancel').onclick=()=>{overlay.remove();resolve(null);};
+    box.querySelectorAll('button[data-key]').forEach(btn=>{
+      btn.onclick=()=>{ const k=btn.getAttribute('data-key'); overlay.remove(); resolve(DOCX_THEMES[k]); };
+    });
+  });
+}
 
 // Parse **bold** / *italic* markdown segments into TextRun children.
 // Strips ALL stray asterisks so they never appear in the final docx.
@@ -1866,13 +1915,40 @@ function docxBlankBox(heightInches, caption) {
 async function exportDocx() {
   if (!currentModuleJSON) return showToast('No module to export!', 'error');
   if (!window.docx || !window.docx.Document) return showToast('docx library failed to load — refresh page', 'error');
-  showToast('📄 Building .docx file…', 'success');
+  const picked = await pickDocxTheme();
+  if (!picked) return; // user cancelled
+  DOCX_THEME = picked;
+  showToast(`📄 Building .docx (${picked.name})…`, 'success');
 
   const data = currentModuleJSON, meta = data._meta;
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, WidthType, BorderStyle, convertInchesToTwip } = window.docx;
   const T = DOCX_THEME;
 
-  // Section heading with colored shading bar (modern kid-style)
+  // Mix two hex colors (helper for gradient stops)
+  const mix = (a,b,t)=>{
+    const pa=parseInt(a,16), pb=parseInt(b,16);
+    const ar=(pa>>16)&255, ag=(pa>>8)&255, ab=pa&255;
+    const br=(pb>>16)&255, bg=(pb>>8)&255, bb=pb&255;
+    const r=Math.round(ar+(br-ar)*t), g=Math.round(ag+(bg-ag)*t), bl=Math.round(ab+(bb-ab)*t);
+    return ((1<<24)|(r<<16)|(g<<8)|bl).toString(16).slice(1).toUpperCase();
+  };
+  // 12-cell gradient bar: primary -> secondary -> accent
+  const gradientBar = () => {
+    if (T.gradient === false) return null;
+    const stops = 12, cells = [];
+    for (let i=0;i<stops;i++){
+      const t = i/(stops-1);
+      const col = t<0.5 ? mix(T.primary,T.secondary,t*2) : mix(T.secondary,T.accent,(t-0.5)*2);
+      cells.push(new TableCell({
+        width: { size: Math.floor(10000/stops), type: WidthType.DXA },
+        children: [new Paragraph({ children:[new TextRun({ text:'' })] })],
+        shading: { fill: col },
+        borders: { top:{style:BorderStyle.NONE,size:0,color:'FFFFFF'}, bottom:{style:BorderStyle.NONE,size:0,color:'FFFFFF'}, left:{style:BorderStyle.NONE,size:0,color:'FFFFFF'}, right:{style:BorderStyle.NONE,size:0,color:'FFFFFF'} }
+      }));
+    }
+    return new Table({ width:{ size:100, type:WidthType.PERCENTAGE }, rows:[ new TableRow({ height:{ value:60, rule:'exact' }, children: cells }) ] });
+  };
+  // Section heading with colored shading bar + gradient stripe
   const heading = (text, lvl = 1) => {
     const isH1 = lvl === 1;
     return new Paragraph({
@@ -1888,9 +1964,9 @@ async function exportDocx() {
       indent: { left: 120, right: 120 },
       border: {
         top: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
-        bottom: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.accent : T.secondary },
         left: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary },
-        right: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.primary : T.secondary }
+        right: { style: BorderStyle.SINGLE, size: 4, color: isH1 ? T.accent : T.secondary }
       }
     });
   };
