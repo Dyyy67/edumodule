@@ -1641,26 +1641,26 @@ function renderActivityItemsHtml(a) {
   const items = a.items || [];
   switch (a.type) {
     case 'check_x':
-      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${escapeHtml(stripLeadNum(itemText(s)))}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th style="width:60px">✓ / ✗</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">___</td><td>${formatRich(stripLeadNum(itemText(s)))}</td></tr>`).join('')}</table>`;
     case 'true_false':
-      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${escapeHtml(stripLeadNum(itemText(s)))}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th style="width:100px">True / False</th><th>Statement</th></tr>${items.map(s=>`<tr><td style="text-align:center">________</td><td>${formatRich(stripLeadNum(itemText(s)))}</td></tr>`).join('')}</table>`;
     case 'matching': {
       const left = items.map(p=>stripLeadNum(itemText(p && p.left)));
       const right = items.map(p=>stripLeadLetter(itemText(p && p.right)));
       // Shuffle right column so it doesn't line up with left
       const order = right.map((_,i)=>i).sort(()=>Math.random()-0.5);
-      return `<table class="activity-table"><tr><th>Column A</th><th>Match</th><th>Column B</th></tr>${left.map((l,i)=>`<tr><td>${i+1}. ${escapeHtml(l)}</td><td style="text-align:center">____</td><td>${String.fromCharCode(65+i)}. ${escapeHtml(right[order[i]]||'')}</td></tr>`).join('')}</table>`;
+      return `<table class="activity-table"><tr><th>Column A</th><th>Match</th><th>Column B</th></tr>${left.map((l,i)=>`<tr><td>${i+1}. ${formatRich(l)}</td><td style="text-align:center">____</td><td>${String.fromCharCode(65+i)}. ${formatRich(right[order[i]]||'')}</td></tr>`).join('')}</table>`;
     }
     case 'draw':
-      return `<div style="border:2px dashed #c5cae9;border-radius:10px;padding:24px;text-align:center;min-height:180px"><p style="font-size:13px;color:var(--muted)">✏️ ${escapeHtml(itemText(items[0])||'Draw here')}</p></div>`;
+      return `<div style="border:2px dashed #c5cae9;border-radius:10px;padding:24px;text-align:center;min-height:180px"><p style="font-size:13px;color:var(--muted)">✏️ ${formatRich(itemText(items[0])||'Draw here')}</p></div>`;
     case 'cut_paste':
       const cats = [...new Set(items.map(x=>x && x.category).filter(Boolean))];
-      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>escapeHtml(stripLeadNum(itemText(x && x.label)))).join(' • ')}</p>
+      return `<p style="font-size:12px;margin-bottom:8px"><strong>Labels:</strong> ${items.map(x=>formatRich(stripLeadNum(itemText(x && x.label)))).join(' • ')}</p>
         <table class="activity-table"><tr>${cats.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr><tr>${cats.map(()=>`<td style="height:80px"></td>`).join('')}</tr></table>`;
     case 'multiple_choice':
-      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${escapeHtml(stripLeadNum(itemText(q && q.question)))}</p>${((q&&q.choices)||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${escapeHtml(stripLeadLetter(itemText(c)))}</p>`).join('')}</div>`).join('');
+      return items.map((q,i)=>`<div style="margin-bottom:10px"><p><strong>${i+1}.</strong> ${formatRich(stripLeadNum(itemText(q && q.question)))}</p>${((q&&q.choices)||[]).map((c,j)=>`<p style="margin-left:18px;font-size:13px">${String.fromCharCode(65+j)}. ${formatRich(stripLeadLetter(itemText(c)))}</p>`).join('')}</div>`).join('');
     default:
-      return `<p style="font-size:12px;color:var(--muted)">${items.map(x=>escapeHtml(itemText(x))).join('<br>')}</p>`;
+      return `<p style="font-size:12px;color:var(--muted)">${items.map(x=>formatRich(itemText(x))).join('<br>')}</p>`;
   }
 }
 // Normalize an item to a readable string. The AI sometimes returns objects
@@ -1687,8 +1687,13 @@ function stripLeadNum(s){ return String(s||'').replace(/^\s*\d+\s*[\.\)\:\-]\s*/
 function stripLeadLetter(s){ return String(s||'').replace(/^\s*[A-Za-z]\s*[\.\)\:\-]\s*/, '').trim(); }
 // Convert **bold** markdown to <strong> after escaping HTML — safe to pass through innerHTML
 function formatRich(s){
-  return escapeHtml(String(s||'')).replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--secondary)">$1</strong>');
+  return escapeHtml(String(s||''))
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--secondary)">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\*+/g, '');
 }
+// Strip all asterisks from plain text (for answer keys, etc.)
+function stripStars(s){ return String(s||'').replace(/\*+/g, ''); }
 // Renders text that may contain "- " bullet sub-points as proper lists, keeping bold highlights.
 function renderRich(content){
   return String(content||'').split(/\n\n+/).map(block=>{
@@ -1721,12 +1726,12 @@ function renderAnswerKeysHtml(data) {
       else if (ans && ans.left && ans.right) s = `${ans.left} → ${ans.right}`;
       else if (ans && ans.label) s = `${ans.label} → ${ans.correctCategory||''}`;
       else s = JSON.stringify(ans);
-      return `<li>${j+1}. ${escapeHtml(s)}</li>`;
+      return `<li>${j+1}. ${formatRich(stripStars(s))}</li>`;
     }).join('');
-    return `<div style="margin-bottom:12px"><h4 style="color:#FF9F43;font-size:14px">${ACT_TYPE_LABEL[a.type]||''} Activity ${i+1}: ${escapeHtml(a.title||'')}</h4><ol style="padding-left:22px;font-size:13px;line-height:1.7;list-style:none">${key}</ol></div>`;
+    return `<div style="margin-bottom:12px"><h4 style="color:#FF9F43;font-size:14px">${ACT_TYPE_LABEL[a.type]||''} Activity ${i+1}: ${escapeHtml(stripStars(a.title||''))}</h4><ol style="padding-left:22px;font-size:13px;line-height:1.7;list-style:none">${key}</ol></div>`;
   }).join('');
   const assessRows = assessKey.length
-    ? `<div><h4 style="color:#FF9F43;font-size:14px">✏️ Assessment Answers</h4><ol style="padding-left:22px;font-size:13px;line-height:1.7">${assessKey.map(a=>`<li>${escapeHtml(String(a))}</li>`).join('')}</ol></div>`
+    ? `<div><h4 style="color:#FF9F43;font-size:14px">✏️ Assessment Answers</h4><ol style="padding-left:22px;font-size:13px;line-height:1.7">${assessKey.map(a=>`<li>${formatRich(stripStars(String(a)))}</li>`).join('')}</ol></div>`
     : '';
   return `<div class="answer-key-page" style="margin-top:24px;padding:24px;background:#fff7e6;border:3px solid #FF9F43;border-radius:14px;page-break-before:always;break-before:page">
     <h2 style="font-family:'Fredoka One',sans-serif;color:#FF9F43;font-size:22px;margin-bottom:6px">🔑 Teacher's Answer Key</h2>
