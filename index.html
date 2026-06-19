@@ -1025,10 +1025,10 @@ async function loadUserData() {
     const keys = await db.collection('users').doc(currentUser.uid).collection('apiKeys').get();
     appState.apiKeys = keys.docs.map(d => ({id: d.id, ...d.data()}));
     const modules = await db.collection('users').doc(currentUser.uid).collection('modules').orderBy('createdAt','desc').limit(50).get();
-    appState.modules = modules.docs.map(d => ({id: d.id, ...d.data()}));
+    appState.modules = modules.docs.map(d => ({...d.data(), id: d.id, createdAt: normalizeDate(d.data().createdAt)}));
     try {
       const sums = await db.collection('users').doc(currentUser.uid).collection('summaries').orderBy('createdAt','desc').limit(50).get();
-      appState.summaries = sums.docs.map(d => ({id: d.id, ...d.data()}));
+      appState.summaries = sums.docs.map(d => ({...d.data(), id: d.id, createdAt: normalizeDate(d.data().createdAt)}));
     } catch(e){ appState.summaries = []; }
     // Merge any items that only exist in this user's localStorage cache
     try {
@@ -2178,6 +2178,18 @@ async function downloadPdf(){
 
 
 
+function normalizeDate(v){
+  if(!v) return new Date().toISOString();
+  if(typeof v==='string') return v;
+  if(typeof v==='number') return new Date(v).toISOString();
+  if(v && typeof v.toDate==='function') return v.toDate().toISOString();
+  if(v && typeof v.seconds==='number') return new Date(v.seconds*1000).toISOString();
+  try{ const d=new Date(v); return isNaN(d.getTime())?new Date().toISOString():d.toISOString(); }catch(e){ return new Date().toISOString(); }
+}
+function formatDate(v){
+  const iso=normalizeDate(v); const d=new Date(iso);
+  return isNaN(d.getTime())?'—':d.toLocaleDateString();
+}
 async function saveToHistory() {
   if (!appState.lastModuleData) return showToast('Generate a module first', 'error');
   const f = appState.lastModuleData.formData;
@@ -2197,7 +2209,8 @@ async function saveToHistory() {
         appState.modules.unshift(entry); saveLocalData(); renderHistoryList(); updateDashboardStats();
         showToast('💾 Saved locally (sign in to sync to cloud)', 'success'); saved = true;
       } else {
-        const ref = await db.collection('users').doc(currentUser.uid).collection('modules').add({ ...entry, createdAt: new Date() });
+        const { id: _localId, ...payload } = entry;
+        const ref = await db.collection('users').doc(currentUser.uid).collection('modules').add({ ...payload, createdAt: new Date() });
         appState.modules.unshift({ ...entry, id: ref.id }); saveLocalData(); renderHistoryList(); updateDashboardStats();
         showToast('💾 Saved to history!', 'success'); saved = true;
       }
@@ -2432,7 +2445,7 @@ function renderHistoryList() {
         <div style="width:44px;height:44px;background:${colors[i%4]};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${icons[i%6]}</div>
         <div style="flex:1;min-width:0">
           <div class="hp-item-title">${escapeHtml(m.title)}</div>
-          <div class="hp-item-meta">${new Date(m.createdAt).toLocaleDateString()}</div>
+          <div class="hp-item-meta">${formatDate(m.createdAt)}</div>
           <div class="hp-item-tags">
             <span class="hp-tag">Grade ${escapeHtml(m.grade)}</span>
             <span class="hp-tag">${escapeHtml(m.subject)}</span>
@@ -2898,7 +2911,8 @@ async function saveSummary(){
   if(demoMode){ appState.summaries.unshift(entry); saveLocalData(); renderSummaryHistoryList(); return showToast('💾 Saved!','success'); }
   try{
     if(!currentUser||!db){ appState.summaries.unshift(entry); saveLocalData(); renderSummaryHistoryList(); return showToast('💾 Saved locally','success'); }
-    const ref=await db.collection('users').doc(currentUser.uid).collection('summaries').add({...entry,createdAt:new Date()});
+    const { id: _sLocalId, ...sPayload } = entry;
+    const ref=await db.collection('users').doc(currentUser.uid).collection('summaries').add({...sPayload,createdAt:new Date()});
     appState.summaries.unshift({...entry,id:ref.id}); saveLocalData(); renderSummaryHistoryList();
     showToast('💾 Saved to My Lesson Summaries!','success');
   }catch(e){
@@ -2920,7 +2934,7 @@ function renderSummaryHistoryList(){
         <div style="width:44px;height:44px;background:${colors[i%4]};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📝</div>
         <div style="flex:1;min-width:0">
           <div class="hp-item-title">${escapeHtml(s.title)}</div>
-          <div class="hp-item-meta">${new Date(s.createdAt).toLocaleDateString()}</div>
+          <div class="hp-item-meta">${formatDate(s.createdAt)}</div>
           <div class="hp-item-tags">
             <span class="hp-tag">Grade ${escapeHtml(String(s.grade||''))}</span>
             <span class="hp-tag">${escapeHtml(s.subject||'')}</span>
