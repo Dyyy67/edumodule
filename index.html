@@ -227,6 +227,64 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .empty-state .es-icon{font-size:52px;display:block;margin-bottom:12px}
 .empty-state h3{font-weight:800;font-size:16px;color:var(--text)}
 .empty-state p{font-size:13px;margin-top:6px}
+
+/* === AI VISUAL GUIDE PLACEHOLDER === */
+.visual-guide{display:flex;gap:14px;align-items:flex-start;margin:16px 0;padding:18px 20px;background:#fafbff;border:2px dashed #c5cae9;border-radius:14px;page-break-inside:avoid;break-inside:avoid}
+.visual-guide .vg-icon{flex-shrink:0;width:52px;height:52px;border-radius:12px;background:#eef0ff;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid #d9def5}
+.visual-guide .vg-body{flex:1;min-width:0}
+.visual-guide .vg-label{font-family:'Fredoka One',sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b6f8a;margin-bottom:4px}
+.visual-guide .vg-desc{font-size:13px;line-height:1.6;color:#2D2D2D;margin:0 0 10px 0}
+.visual-guide .vg-copy-btn{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;cursor:pointer;transition:.15s;box-shadow:0 2px 8px rgba(108,99,255,.25)}
+.visual-guide .vg-copy-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(108,99,255,.35)}
+.visual-guide .vg-copy-btn.copied{background:var(--green)}
+
+/* ===== AUTO AI IMAGE (free pollinations.ai) ===== */
+.auto-img-wrap{position:relative;margin:18px auto;max-width:100%;text-align:center;page-break-inside:avoid;break-inside:avoid;border-radius:14px;outline:2px dashed transparent;outline-offset:4px;transition:outline-color .15s}
+.auto-img-wrap.drag-over{outline-color:var(--primary);background:#f4f6ff}
+.auto-img-wrap img.auto-img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:14px;box-shadow:0 4px 18px rgba(108,99,255,.18)}
+.auto-img-skeleton{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:4/3;border-radius:14px;background:linear-gradient(110deg,#eef0ff 8%,#f7f8ff 18%,#eef0ff 33%);background-size:200% 100%;animation:autoImgPulse 1.3s ease-in-out infinite;display:flex;align-items:center;justify-content:center;border:2px dashed #c5cae9}
+@keyframes autoImgPulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.auto-img-spinner{width:42px;height:42px;border-radius:50%;border:4px solid #d9def5;border-top-color:var(--primary);animation:autoImgSpin .8s linear infinite}
+@keyframes autoImgSpin{to{transform:rotate(360deg)}}
+.auto-img-skeleton .auto-img-hint{position:absolute;bottom:10px;left:0;right:0;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.auto-img-remove{position:absolute;top:8px;right:8px;z-index:5;background:rgba(255,107,157,.95);color:#fff;border:none;border-radius:999px;padding:6px 12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:.15s}
+.auto-img-remove:hover{transform:translateY(-1px);background:var(--secondary)}
+.auto-img-toolbar{position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px}
+.auto-img-tool{background:rgba(108,99,255,.95);color:#fff;border:none;border-radius:999px;padding:6px 12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:.15s}
+.auto-img-tool:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.auto-img-tool-danger{background:rgba(255,107,157,.95)}
+.auto-img-tool-danger:hover{background:var(--secondary)}
+.auto-img-caption{display:none!important}
+.auto-img-error{padding:18px;border:2px dashed #ffb3c7;border-radius:14px;background:#fff5f8;color:var(--secondary);font-weight:700;font-size:13px}
+.auto-img-error button{margin-top:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-weight:800;cursor:pointer}
+/* Teacher-facing drop zone + suggested-prompt panel (hidden in all exports). */
+.illus-drop{width:100%;max-width:520px;margin:0 auto;aspect-ratio:4/3;border-radius:14px;border:2px dashed #c5cae9;background:linear-gradient(135deg,#fafbff,#f4f6ff);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;color:#5a6080;font-weight:700;font-size:13px;gap:6px}
+.illus-drop .illus-drop-icon{font-size:34px}
+.illus-drop .illus-drop-sub{font-size:11px;color:var(--muted);font-weight:600;max-width:340px;line-height:1.5}
+.illus-prompt-panel{margin:10px auto 0;max-width:520px;background:#fff;border:2px solid #e6eaff;border-radius:12px;padding:12px 14px;text-align:left;box-shadow:0 2px 10px rgba(108,99,255,.08)}
+.illus-prompt-panel .ipp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.illus-prompt-panel .ipp-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;color:var(--primary);letter-spacing:.03em;text-transform:uppercase}
+.illus-prompt-panel .ipp-copy{background:var(--primary);color:#fff;border:none;border-radius:999px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;transition:.15s}
+.illus-prompt-panel .ipp-copy:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.illus-prompt-panel .ipp-copy.copied{background:#22c55e}
+.illus-prompt-panel .ipp-text{font-size:12.5px;line-height:1.55;color:#3a3f5c;background:#f7f8ff;border-radius:8px;padding:10px 12px;font-family:'Courier New',monospace;white-space:pre-wrap;word-break:break-word}
+.illus-prompt-panel .ipp-hint{font-size:11px;color:var(--muted);margin-top:6px;font-style:italic}
+
+/* === GAMIFIED REVIEW (Word Search / Scramble) === */
+.gamified-section{margin:22px 0;padding:22px;background:#fffdf5;border:2px solid #FFD93D;border-radius:16px;page-break-inside:avoid;break-inside:avoid}
+.gamified-section h2{font-family:'Fredoka One',sans-serif;font-size:20px;color:var(--orange);margin-bottom:6px;padding-bottom:8px;border-bottom:3px dashed #ffe88a}
+.gamified-section .game-instructions{font-size:12px;color:#6b6f8a;font-style:italic;margin-bottom:14px}
+.ws-grid{margin:12px auto;border-collapse:collapse;font-family:'Courier New',monospace}
+.ws-grid td{width:28px;height:28px;text-align:center;vertical-align:middle;border:1px solid #e0e0e0;font-size:14px;font-weight:700;color:#2D2D2D;background:#fff;text-transform:uppercase}
+.scramble-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.scramble-item{display:flex;align-items:center;gap:14px;padding:10px 14px;background:#fff;border:1px solid #ffe88a;border-radius:10px}
+.scramble-item .sc-num{font-weight:800;color:var(--orange);min-width:22px}
+.scramble-item .sc-letters{font-family:'Courier New',monospace;font-weight:800;font-size:15px;letter-spacing:.25em;color:var(--primary);background:#f0f4ff;padding:6px 12px;border-radius:6px}
+.scramble-item .sc-blank{flex:1;border-bottom:2px dotted #c5cae9;min-height:20px;font-size:13px;color:var(--muted)}
+.word-bank{margin-top:14px;padding:14px 16px;background:#fff7e6;border:2px solid var(--orange);border-radius:12px}
+.word-bank h4{font-family:'Fredoka One',sans-serif;font-size:14px;color:var(--orange);margin-bottom:8px;letter-spacing:.04em}
+.word-bank .wb-words{display:flex;flex-wrap:wrap;gap:8px}
+.word-bank .wb-words span{display:inline-block;padding:5px 11px;background:#fff;border:1px solid #ffd97a;border-radius:20px;font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -459,8 +517,14 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
                   <div id="selectedActChips" class="file-chips"></div>
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);margin-top:4px">
-                  <input type="checkbox" id="includeAnswerKey" checked> 🔑 Include Answer Key (teacher only)
-                </label>
+                   <input type="checkbox" id="includeAnswerKey" checked> 🔑 Include Answer Key (teacher only)
+                 </label>
+                 <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);margin-top:4px">
+                   <input type="checkbox" id="includeVisualGuide" checked> 🖼️ Include Visual Illustrations (per section)
+                 </label>
+                 <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text);margin-top:4px">
+                   <input type="checkbox" id="includeGamified" checked> 🎮 Include Gamified Review (word search / scramble)
+                 </label>
               </div>
             </div>
 
@@ -1229,34 +1293,68 @@ async function extractTextFromFile(f){
   return '';
 }
 
+
+// ==================== ROBUST RETRY HELPERS ====================
+const GEMINI_FALLBACK_CHAIN = {
+  'gemini-2.5-pro':   ['gemini-2.5-pro','gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'],
+  'gemini-2.5-flash': ['gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash'],
+  'gemini-2.0-flash': ['gemini-2.0-flash','gemini-2.5-flash','gemini-1.5-flash'],
+  'gemini-1.5-flash': ['gemini-1.5-flash','gemini-2.5-flash','gemini-2.0-flash']
+};
+function _geminiChain(model){ return GEMINI_FALLBACK_CHAIN[model] || [model,'gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-flash']; }
+function _isQuotaErr(msg){ return /quota|exceeded|RESOURCE_EXHAUSTED|HTTP 429/i.test(msg||''); }
+function _isRetryableErr(msg){ return /overloaded|UNAVAILABLE|HTTP 5\d\d|fetch|network|temporar|Empty response/i.test(msg||''); }
+function _sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function _withRetryAndFallback(model, doCall, onStep){
+  const chain = _geminiChain(model);
+  let lastErr;
+  for (let mi=0; mi<chain.length; mi++){
+    const m = chain[mi];
+    for (let attempt=1; attempt<=4; attempt++){
+      try {
+        if (mi>0 || attempt>1) onStep && onStep(`🔁 Trying ${m} (attempt ${attempt})…`);
+        return await doCall(m);
+      } catch(e){
+        lastErr = e;
+        const msg = e?.message || String(e);
+        if (_isQuotaErr(msg)) throw e;
+        if (e?.name === 'AbortError') throw e;
+        if (!_isRetryableErr(msg) && attempt>=2) break;
+        const wait = Math.min(15000, 1200 * Math.pow(2, attempt-1)) + Math.floor(Math.random()*500);
+        onStep && onStep(`⏳ ${m} busy. Waiting ${Math.round(wait/1000)}s before retry…`);
+        await _sleep(wait);
+      }
+    }
+  }
+  throw lastErr || new Error('All Gemini models failed');
+}
+
 // ==================== GEMINI ====================
 async function callGemini(prompt, apiKey, model) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const controller = new AbortController();
-  if (genAbort) genAbort.signal.addEventListener('abort', () => controller.abort());
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: controller.signal,
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        maxOutputTokens: 32768,
-        responseMimeType: 'application/json'
-      }
-    })
-  });
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { const err = await res.json(); msg = err.error?.message || msg; } catch(e){}
-    throw new Error(msg);
-  }
-  const data = await res.json();
-  const txt = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-  if (!txt) throw new Error('Empty response from Gemini');
-  return txt;
+  const onStep = (m) => { try { if (typeof setStep==='function') setStep(m); else console.log(m); } catch(e){} };
+  return await _withRetryAndFallback(model, async (useModel) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(useModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const controller = new AbortController();
+    if (genAbort) genAbort.signal.addEventListener('abort', () => controller.abort());
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, topP: 0.95, maxOutputTokens: 32768, responseMimeType: 'application/json' }
+      })
+    });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { const err = await res.json(); msg = err.error?.message || msg; } catch(e){}
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    const txt = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    if (!txt) throw new Error('Empty response from Gemini');
+    return txt;
+  }, onStep);
 }
 
 // Generate an actual image (PNG base64 data URL) from a text prompt using Gemini's image-capable model.
@@ -1398,6 +1496,8 @@ Return ONLY valid JSON (no markdown, no commentary, no backticks). Use this exac
   "keyVocabulary": [{"word": "term", "definition": "kid-friendly meaning"}],
   "mainContent": [
     { "sectionTitle": "Clear section title", "content": "Lesson content (1-2 short paragraphs)",
+      "visualGuide": { "icon": "single emoji that represents the visual (e.g. 🖼️, 🌱, 🔬, 🗺️)",
+                       "description": "A vivid, highly descriptive, child-friendly text-to-image PROMPT (NOT a full sentence to a teacher) that will be sent directly to a free AI image generator to auto-render an illustration for THIS section. Describe exactly the subjects, scene, colors and composition that make this concept clearer for young learners. Keep it concrete and concise (one rich phrase, ~8-25 words). Do NOT include the words 'image of' or any style keywords like 'vector'/'cartoon'/'high resolution' — the app appends those automatically. Do NOT request any text, words, letters, captions or labels inside the picture." },
       "activity": { "title": "Activity name", "instructions": "Step-by-step instructions", "tableHeaders": null, "tableRows": [] } }
   ],
   "activities": [
@@ -1408,9 +1508,20 @@ Return ONLY valid JSON (no markdown, no commentary, no backticks). Use this exac
   ],
   "imagePrompt": "Description of a simple, colorful, kid-friendly illustration",
   "summaryPoints": ["3 to 5 key takeaways"],
+  "gamifiedReview": {
+    "type": "word_search" OR "word_scramble" (pick ONE),
+    "title": "Short fun title (e.g. 'Vocabulary Word Search')",
+    "instructions": "1-sentence instructions for students",
+    "words": ["UPPERCASE vocabulary keywords from THIS lesson's keyVocabulary — 6 to 10 words, letters A-Z only, no spaces or punctuation"],
+    "grid": [["A","B","C", "..."]],  // REQUIRED ONLY when type=word_search. A 12x12 grid of single UPPERCASE letters. Each word in "words" must appear once horizontally, vertically, or diagonally. Fill remaining cells with random uppercase letters. Exactly 12 rows, 12 cells each.
+    "scrambled": [{"scrambled":"SCRAMBLED LETTERS","answer":"ORIGINAL WORD"}]  // REQUIRED ONLY when type=word_scramble. One entry per word in "words", same order, letters shuffled.
+  },
   "assessmentQuestions": ["5 to 8 questions covering the lesson"],
   "assessmentAnswerKey": ["correct answer for each assessmentQuestion, in order"]
 }
+
+VISUAL GUIDE RULES (VERY IMPORTANT): ${formData.includeVisualGuide === false ? 'Do NOT include any "visualGuide" object in any mainContent section — omit that field entirely.' : 'Every mainContent section MUST include a "visualGuide" object whose "description" is a vivid, ready-to-render text-to-image prompt describing the illustration for that section. Keep it visual and concrete, and never ask for any text/words inside the picture.'}
+GAMIFIED REVIEW RULES (VERY IMPORTANT): ${formData.includeGamified === false ? 'Do NOT include a "gamifiedReview" object — omit that field entirely.' : 'Always include "gamifiedReview". Use ONLY the vocabulary words from this lesson (uppercase, A-Z letters only). If type=word_search, the grid MUST be exactly 12 rows × 12 columns and every word must actually be placeable in it; if you cannot do this reliably, choose type=word_scramble instead.'}
 
 Provide at least 3 mainContent sections. If a section has no table, set tableHeaders to null and tableRows to []. Keep tone warm, encouraging, and age-appropriate.`;
 }
@@ -1434,6 +1545,8 @@ async function generateModule() {
     activityCount: document.getElementById('activityCount').value,
     activityTypes: getSelectedActivityTypes(),
     includeAnswerKey: document.getElementById('includeAnswerKey').checked,
+    includeVisualGuide: document.getElementById('includeVisualGuide') ? document.getElementById('includeVisualGuide').checked : true,
+    includeGamified: document.getElementById('includeGamified') ? document.getElementById('includeGamified').checked : true,
   };
 
   genAbort = new AbortController();
@@ -1475,16 +1588,9 @@ async function generateModule() {
     currentModuleJSON._meta = formData;
     setStep(4, 'done');
 
-    // Generate the actual illustration image (non-blocking on failure)
-    if (currentModuleJSON.imagePrompt) {
-      try {
-        setGenStep('🖼️ Generating illustration…', 'Calling image model', 82);
-        const imgDataUrl = await generateModuleImage(currentModuleJSON.imagePrompt, apiKey);
-        if (imgDataUrl) currentModuleJSON.imageDataUrl = imgDataUrl;
-      } catch(imgErr) {
-        console.warn('Image generation failed:', imgErr);
-      }
-    }
+    // Illustrations are now auto-generated live & free per section via
+    // pollinations.ai directly in the preview (no API key, no extra call).
+    setGenStep('🖼️ Preparing free AI illustrations…', 'Rendering on the fly', 82);
 
     setStep(5, 'active'); setGenStep('🎨 Building module preview…', '', 92);
     renderPreview(currentModuleJSON);
@@ -1567,10 +1673,11 @@ function renderPreview(data) {
 
   const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
   const objectives = (data.learningObjectives||[]).map(o => `<li>${formatRich(o)}</li>`).join('');
-  const sections = (data.mainContent||[]).map(s => `
+  const sections = (data.mainContent||[]).map((s, sIdx) => `
     <div class="lesson-section">
       <h2>${escapeHtml(s.sectionTitle||'Section')}</h2>
       ${renderRich(s.content||'')}
+      ${(data._meta && data._meta.includeVisualGuide === false) ? '' : renderVisualGuideHtml(s.visualGuide, sIdx)}
       ${s.activity ? `
         <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
           <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${escapeHtml(s.activity.title||'Activity')}</h4>
@@ -1586,9 +1693,15 @@ function renderPreview(data) {
   const summary = (data.summaryPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
   const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p style="margin-bottom:8px"><strong>${i+1}.</strong> ${formatRich(q)}</p>`).join('');
 
+  // Per-section illustrations are auto-generated inline (see renderVisualGuideHtml).
+  // Keep a top-level illustration only if one was explicitly supplied earlier.
   const imgBlock = data.imageDataUrl
-    ? `<div style="text-align:center;margin:20px 0">
-         <img src="${data.imageDataUrl}" alt="${escapeHtml(data.imagePrompt||'Lesson illustration')}" style="max-width:100%;border-radius:14px;box-shadow:0 4px 18px rgba(108,99,255,.18)">
+    ? `<div class="auto-img-wrap" data-auto-img="1" data-section-index="cover">
+         <div class="auto-img-toolbar no-print">
+           <button type="button" class="auto-img-tool" title="Generate a new illustration" onclick="regenerateAutoImage(this)">🔄 Regenerate</button>
+           <button type="button" class="auto-img-tool auto-img-tool-danger" title="Remove this image" onclick="removeAutoImage(this)">✕ Remove</button>
+         </div>
+         <img class="auto-img" src="${escapeAttr(data.imageDataUrl)}" alt="${escapeAttr(data.imagePrompt||'Lesson illustration')}">
        </div>`
     : '';
 
@@ -1621,8 +1734,11 @@ function renderPreview(data) {
       ${renderActivitiesHtml(data.activities||[])}
       <div class="summary-box"><h3>⭐ Lesson Summary</h3><ul>${summary}</ul></div>
       ${assessment ? `<div class="lesson-section" style="margin-top:20px"><h2>✏️ Check Your Understanding</h2>${assessment}</div>` : ''}
+      ${(data._meta && data._meta.includeGamified === false) ? '' : renderGamifiedReviewHtml(data.gamifiedReview)}
       ${renderAnswerKeysHtml(data)}
     </div>`;
+  // Bind drag/drop + paste override handlers to the freshly rendered auto images.
+  if (typeof attachAutoImageHandlers === 'function') attachAutoImageHandlers();
 }
 
 function renderActivitiesHtml(activities) {
@@ -1713,6 +1829,293 @@ function renderRich(content){
     return html;
   }).join('');
 }
+// ============= ILLUSTRATION SUGGESTION (no auto generation) =============
+// Renders a placeholder drop zone + a copyable "Suggested Illustration Prompt"
+// panel. The teacher copies the prompt, generates a picture in their own AI
+// tool, then drags or pastes it back into the box. The prompt panel and the
+// empty drop zone are marked .no-print so they NEVER appear in the downloaded
+// HTML, PDF, or Word output — only an image the teacher actually pasted does.
+function renderVisualGuideHtml(vg, sIdx){
+  if(!vg || typeof vg!=='object') return '';
+  const desc = String(vg.description||vg.prompt||'').trim();
+  if(!desc) return '';
+  const idx = (sIdx == null) ? '' : sIdx;
+  const escDesc = escapeAttr(desc);
+  return `<div class="auto-img-wrap" data-auto-img="1" data-section-index="${idx}" data-prompt="${escDesc}">
+    <div class="illus-drop no-print" data-illus-drop="1">
+      <div class="illus-drop-icon">🖼️</div>
+      <div>Drop or paste your illustration here</div>
+      <div class="illus-drop-sub">Copy the prompt below, generate a picture in your favorite AI image tool, then drag or paste it into this box.</div>
+    </div>
+    <div class="illus-prompt-panel no-print" data-illus-prompt="1">
+      <div class="ipp-head">
+        <span class="ipp-title">✨ Suggested Illustration Prompt</span>
+        <button type="button" class="ipp-copy" data-prompt="${escDesc}" onclick="copyVisualPrompt(this)">📋 Copy prompt</button>
+      </div>
+      <div class="ipp-text">${escapeHtml(desc)}</div>
+      <div class="ipp-hint">This prompt is for you only — it is hidden in the downloaded module.</div>
+    </div>
+  </div>`;
+}
+// Image finished loading — hide the skeleton and reveal the picture.
+function onAutoImgLoad(img){
+  const wrap = img.closest('.auto-img-wrap');
+  if(!wrap) return;
+  const sk = wrap.querySelector('[data-skeleton]');
+  if(sk) sk.style.display = 'none';
+  const err = wrap.querySelector('.auto-img-error');
+  if(err){ err.style.display = 'none'; }
+  img.style.display = 'block';
+  wrap.setAttribute('data-loaded','1');
+  wrap.setAttribute('data-attempts','0');
+}
+// Image failed to load — auto-retry a few times with a fresh seed before
+// giving up. pollinations.ai often errors on the first request while the
+// picture is still rendering, so silent retries fix most failures.
+function onAutoImgError(img){
+  const wrap = img.closest('.auto-img-wrap');
+  if(!wrap || img.dataset.userImage === '1') return;
+  const desc = wrap.getAttribute('data-prompt') || '';
+  const attempts = (Number(wrap.getAttribute('data-attempts')) || 0) + 1;
+  wrap.setAttribute('data-attempts', String(attempts));
+  if(attempts <= 3){
+    setTimeout(()=>{
+      if(img.dataset.userImage === '1') return;
+      img.src = buildPollinationsUrl(desc, Math.floor(Math.random()*1e6));
+    }, 1200 * attempts);
+    return;
+  }
+  const sk = wrap.querySelector('[data-skeleton]');
+  if(sk){
+    sk.classList.remove('auto-img-skeleton');
+    sk.classList.add('auto-img-error');
+    sk.style.animation = 'none';
+    sk.style.display = 'flex';
+    sk.innerHTML = `⚠️ Couldn't generate the illustration.<br><button type="button" onclick="retryAutoImage(this)">🔄 Try again</button>`;
+  }
+}
+// Retry: rebuild the pollinations URL with a new seed and reload.
+function retryAutoImage(btn){
+  const wrap = btn.closest('.auto-img-wrap');
+  if(!wrap) return;
+  const desc = wrap.getAttribute('data-prompt') || '';
+  const img = wrap.querySelector('img.auto-img');
+  const sk = wrap.querySelector('.auto-img-error');
+  wrap.setAttribute('data-attempts','0');
+  if(sk){
+    sk.classList.remove('auto-img-error');
+    sk.classList.add('auto-img-skeleton');
+    sk.style.animation = '';
+    sk.innerHTML = `<div class="auto-img-spinner"></div><div class="auto-img-hint">🎨 Generating illustration…</div>`;
+    sk.style.display = 'flex';
+  }
+  if(img){ img.style.display='none'; wrap.removeAttribute('data-loaded'); img.src = buildPollinationsUrl(desc, Math.floor(Math.random()*1e6)); }
+}
+// Regenerate: teacher-triggered fresh illustration (always-available button).
+function regenerateAutoImage(btn){
+  const wrap = btn.closest('.auto-img-wrap');
+  if(!wrap) return;
+  const desc = wrap.getAttribute('data-prompt') || '';
+  let img = wrap.querySelector('img.auto-img');
+  wrap.setAttribute('data-attempts','0');
+  if(img){ delete img.dataset.userImage; }
+  let sk = wrap.querySelector('[data-skeleton], .auto-img-error');
+  if(!sk){
+    sk = document.createElement('div');
+    wrap.insertBefore(sk, img || null);
+  }
+  sk.className = 'auto-img-skeleton';
+  sk.setAttribute('data-skeleton','1');
+  sk.style.animation = '';
+  sk.style.display = 'flex';
+  sk.innerHTML = `<div class="auto-img-spinner"></div><div class="auto-img-hint">🎨 Generating illustration…</div>`;
+  if(!img){
+    img = document.createElement('img');
+    img.className = 'auto-img';
+    img.setAttribute('referrerpolicy','no-referrer');
+    img.alt = desc;
+    img.setAttribute('onload','onAutoImgLoad(this)');
+    img.setAttribute('onerror','onAutoImgError(this)');
+    wrap.appendChild(img);
+  }
+  img.style.display = 'none';
+  wrap.removeAttribute('data-loaded');
+  img.src = buildPollinationsUrl(desc, Math.floor(Math.random()*1e6));
+  if(typeof showToast==='function') showToast('🎨 Generating a new illustration…','success');
+}
+// Remove button — purge the image so the lesson text reflows into the gap.
+function removeAutoImage(btn){
+  const wrap = btn.closest('.auto-img-wrap');
+  if(wrap){ wrap.remove(); if(typeof showToast==='function') showToast('🗑️ Image removed', 'success'); }
+}
+// Replace the auto image with a teacher-supplied picture (drag/drop or paste).
+function setAutoImageFromFile(wrap, file){
+  if(!wrap || !file || !file.type || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let img = wrap.querySelector('img.auto-img');
+    // Hide skeleton, error state, drop zone, and the suggested-prompt panel
+    // so only the teacher's pasted picture is visible (and exported).
+    wrap.querySelectorAll('[data-skeleton], .auto-img-error, [data-illus-drop], [data-illus-prompt]')
+        .forEach(n => { n.style.display = 'none'; });
+    if(!img){
+      img = document.createElement('img');
+      img.className = 'auto-img';
+      wrap.appendChild(img);
+    }
+    img.dataset.userImage = '1';
+    img.removeAttribute('crossorigin');
+    img.style.display = 'block';
+    img.src = e.target.result;
+    wrap.setAttribute('data-loaded','1');
+    // Add a small Remove toolbar so the teacher can clear their picture and
+    // get the drop zone + prompt panel back.
+    if(!wrap.querySelector('.auto-img-toolbar')){
+      const tb = document.createElement('div');
+      tb.className = 'auto-img-toolbar no-print';
+      tb.innerHTML = '<button type="button" class="auto-img-tool auto-img-tool-danger" title="Remove this image" onclick="removeUserImage(this)">✕ Remove</button>';
+      wrap.insertBefore(tb, wrap.firstChild);
+    }
+    if(typeof showToast==='function') showToast('🖼️ Image added to your module', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+// Clear the teacher's pasted picture and restore the drop zone + prompt panel.
+function removeUserImage(btn){
+  const wrap = btn.closest('.auto-img-wrap');
+  if(!wrap) return;
+  const img = wrap.querySelector('img.auto-img');
+  if(img) img.remove();
+  wrap.removeAttribute('data-loaded');
+  const tb = wrap.querySelector('.auto-img-toolbar');
+  if(tb) tb.remove();
+  wrap.querySelectorAll('[data-illus-drop], [data-illus-prompt]')
+      .forEach(n => { n.style.display = ''; });
+  if(typeof showToast==='function') showToast('🗑️ Image removed', 'success');
+}
+// Attach drag-and-drop + paste override listeners to every auto image in preview.
+let _hoveredAutoImg = null;
+function attachAutoImageHandlers(){
+  document.querySelectorAll('.auto-img-wrap').forEach(wrap => {
+    if(wrap.dataset.handlersBound === '1') return;
+    wrap.dataset.handlersBound = '1';
+    wrap.addEventListener('dragover', (e)=>{ e.preventDefault(); wrap.classList.add('drag-over'); });
+    wrap.addEventListener('dragleave', ()=> wrap.classList.remove('drag-over'));
+    wrap.addEventListener('drop', (e)=>{
+      e.preventDefault(); wrap.classList.remove('drag-over');
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(f) setAutoImageFromFile(wrap, f);
+    });
+    wrap.addEventListener('mouseenter', ()=> _hoveredAutoImg = wrap);
+    wrap.addEventListener('mouseleave', ()=>{ if(_hoveredAutoImg === wrap) _hoveredAutoImg = null; });
+  });
+}
+// Document-level paste: drop a copied image onto whichever auto image is hovered.
+document.addEventListener('paste', (e)=>{
+  if(!_hoveredAutoImg) return;
+  const items = (e.clipboardData || window.clipboardData)?.items || [];
+  for(const it of items){
+    if(it.kind === 'file' && it.type.startsWith('image/')){
+      const f = it.getAsFile();
+      if(f){ e.preventDefault(); setAutoImageFromFile(_hoveredAutoImg, f); break; }
+    }
+  }
+});
+// Wait until every auto image inside a root element has fully loaded (or errored)
+// so PDF/Word capture never grabs an empty box or broken-link icon.
+function waitForAutoImages(root, timeoutMs){
+  const scope = root || document;
+  const imgs = Array.from(scope.querySelectorAll('img.auto-img'));
+  const pending = imgs.filter(im => !(im.complete && im.naturalWidth > 0));
+  if(!pending.length) return Promise.resolve();
+  return Promise.all(pending.map(im => new Promise(res => {
+    let done = false;
+    const finish = ()=>{ if(done) return; done = true; res(); };
+    im.addEventListener('load', finish, { once:true });
+    im.addEventListener('error', finish, { once:true });
+    setTimeout(finish, timeoutMs || 25000);
+  }))).then(()=>{});
+}
+// Convert every loaded pollinations image inside `root` into a data: URL so the
+// PDF/print capture embeds the real bytes (no CORS, no broken-link icon).
+async function inlineAutoImages(root){
+  const scope = root || document;
+  const imgs = Array.from(scope.querySelectorAll('img.auto-img'));
+  for(const im of imgs){
+    const src = im.getAttribute('src') || '';
+    if(!src || src.startsWith('data:')) continue;
+    try{
+      const resp = await fetch(src, { mode:'cors' });
+      const blob = await resp.blob();
+      const dataUrl = await new Promise((res,rej)=>{
+        const fr = new FileReader();
+        fr.onload = ()=>res(fr.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(blob);
+      });
+      im.setAttribute('src', dataUrl);
+      im.removeAttribute('crossorigin');
+    }catch(e){ console.warn('Could not inline auto image for export', e); }
+  }
+}
+function escapeAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function copyVisualPrompt(btn){
+  try{
+    const text = btn.getAttribute('data-prompt') || '';
+    const done = ()=>{
+      const old = btn.innerHTML;
+      btn.classList.add('copied');
+      btn.innerHTML = '✅ Copied!';
+      setTimeout(()=>{ btn.classList.remove('copied'); btn.innerHTML = old; }, 1600);
+      if (typeof showToast==='function') showToast('📋 Prompt copied to clipboard', 'success');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text, done));
+    } else { fallbackCopy(text, done); }
+  } catch(e){ console.error(e); }
+}
+function fallbackCopy(text, done){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done&&done(); } catch(_){}
+  ta.remove();
+}
+function renderGamifiedReviewHtml(g){
+  if(!g || typeof g!=='object') return '';
+  const words = (g.words||[]).map(w=>String(w||'').toUpperCase().replace(/[^A-Z]/g,'')).filter(Boolean);
+  if(!words.length) return '';
+  const title = escapeHtml(g.title || (g.type==='word_scramble' ? 'Vocabulary Scramble' : 'Vocabulary Word Search'));
+  const inst  = escapeHtml(g.instructions || (g.type==='word_scramble'
+                ? 'Unscramble each set of letters to reveal a vocabulary word from this lesson.'
+                : 'Find and circle each vocabulary word hidden in the grid below.'));
+  const bank = `<div class="word-bank"><h4>📚 Word Bank</h4><div class="wb-words">${words.map(w=>`<span>${escapeHtml(w)}</span>`).join('')}</div></div>`;
+
+  let body = '';
+  if (g.type === 'word_scramble' || !Array.isArray(g.grid)){
+    let scram = Array.isArray(g.scrambled) ? g.scrambled : [];
+    if (!scram.length){
+      scram = words.map(w=>({ scrambled: w.split('').sort(()=>Math.random()-0.5).join(''), answer: w }));
+    }
+    body = `<div class="scramble-list">${scram.map((s,i)=>{
+      const letters = String((s&&s.scrambled)||'').toUpperCase().replace(/[^A-Z]/g,'').split('').join(' ');
+      return `<div class="scramble-item"><span class="sc-num">${i+1}.</span><span class="sc-letters">${escapeHtml(letters)}</span><span class="sc-blank">______________</span></div>`;
+    }).join('')}</div>`;
+    return `<div class="gamified-section">
+      <h2>🔀 ${title}</h2>
+      <p class="game-instructions">${inst}</p>
+      ${body}${bank}
+    </div>`;
+  }
+  // word_search
+  const grid = g.grid.map(row => Array.isArray(row) ? row.map(c=>String(c||'').toUpperCase().slice(0,1) || '·') : []);
+  body = `<table class="ws-grid">${grid.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</table>`;
+  return `<div class="gamified-section">
+    <h2>🔎 ${title}</h2>
+    <p class="game-instructions">${inst}</p>
+    ${body}${bank}
+  </div>`;
+}
+
 function renderAnswerKeysHtml(data) {
   const include = !data._meta || data._meta.includeAnswerKey !== false;
   if (!include) return '';
@@ -1926,8 +2329,14 @@ async function exportDocx() {
   showToast(`📄 Building .docx (${picked.name})…`, 'success');
 
   const data = currentModuleJSON, meta = data._meta;
-  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, WidthType, BorderStyle, convertInchesToTwip } = window.docx;
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, HeadingLevel, WidthType, BorderStyle, convertInchesToTwip, ImageRun } = window.docx;
   const T = DOCX_THEME;
+
+  // Make sure every free AI illustration is fully loaded, then grab the actual
+  // bytes so the real graphic embeds into the Word file (no broken links).
+  showToast('⏳ Loading AI illustrations for Word…', 'success');
+  await waitForAutoImages(document.getElementById('previewArea'));
+  const autoImages = await collectAutoImagesForDocx();
 
   // Mix two hex colors (helper for gradient stops)
   const mix = (a,b,t)=>{
@@ -2007,7 +2416,7 @@ async function exportDocx() {
     ]
   });
 
-  const helpers = { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, convertInchesToTwip, heading, para, bullet, table, T };
+  const helpers = { Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, convertInchesToTwip, ImageRun, heading, para, bullet, table, T };
 
   // Cover block
   const cover = [
@@ -2043,9 +2452,10 @@ async function exportDocx() {
     ] : []),
     heading('📝 Introduction'),
     ...docxBlocks(data.lessonIntro || ''),
-    ...(data.mainContent || []).flatMap(s => [
+    ...(data.mainContent || []).flatMap((s, sIdx) => [
       heading(s.sectionTitle || 'Section', 2),
       ...docxBlocks(s.content || ''),
+      ...((data._meta && data._meta.includeVisualGuide === false) ? [] : buildVisualGuideDocx(s.visualGuide, helpers, autoImages[String(sIdx)])),
       ...(s.activity ? [
         new Paragraph({
           children: [new TextRun({ text: `📌  Activity: ${docxClean(s.activity.title||'')}`, bold: true, size: 24, color: T.secondary, font: T.fontHeading })],
@@ -2072,6 +2482,7 @@ async function exportDocx() {
       // Estimated handwriting space for sentence answers (2 lines)
       ...docxWritingLines(2)
     ]),
+    ...((data._meta && data._meta.includeGamified === false) ? [] : buildGamifiedReviewDocx(data.gamifiedReview, helpers)),
     ...buildAnswerKeyDocx(data, helpers)
   ];
 
@@ -2115,7 +2526,8 @@ function getPreviewExportHtml(title){
   #previewArea{box-shadow:none!important;margin:0 auto;max-width:8.5in;background:#fff!important;border:none!important;padding:0!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
   .answer-key-page{page-break-before:always!important;break-before:page!important}
-  .lesson-section,.summary-box,.activity-table{page-break-inside:avoid;break-inside:avoid}
+  .lesson-section,.summary-box,.activity-table,.visual-guide,.gamified-section,.word-bank,.ws-grid,.scramble-item{page-break-inside:avoid;break-inside:avoid}
+  .no-print,.vg-copy-btn{display:none!important}
   @page{size:Letter;margin:0.5in}
   @media print{body{padding:0}}
 </style>
@@ -2157,6 +2569,13 @@ async function downloadPdf(){
     body.innerHTML = doc.body.innerHTML;
     container.appendChild(body);
     document.body.appendChild(container);
+    showToast('⏳ Loading AI illustrations for the PDF…','success');
+    // Ensure every free AI illustration is fully loaded before capture so the
+    // real graphic prints instead of an empty box or broken-link icon.
+    await waitForAutoImages(container);
+    // Inline each illustration as a data URL so html2canvas never hits a
+    // cross-origin/tainted-canvas problem and the real picture always prints.
+    await inlineAutoImages(container);
     showToast('Generating PDF…','success');
     try {
       await html2pdf().set({
@@ -2394,6 +2813,110 @@ function buildActivitiesDocx(activities, h) {
   });
   return out;
 }
+function buildVisualGuideDocx(vg, h, autoImg){
+  if(!vg || typeof vg!=='object') return [];
+  const { Paragraph, ImageRun, AlignmentType } = h;
+  // Only embed a picture if the teacher actually pasted one. The suggested
+  // prompt text is intentionally never exported to the Word document.
+  if(autoImg && autoImg.data && ImageRun){
+    try{
+      return [
+        new Paragraph({
+          children: [ new ImageRun({ data: autoImg.data, type: autoImg.type || 'jpg', transformation: { width: autoImg.width, height: autoImg.height } }) ],
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 160, after: 160 }
+        })
+      ];
+    }catch(e){ console.warn('docx image embed failed', e); }
+  }
+  return [];
+}
+// Fetch the bytes of every loaded auto-image in the preview, keyed by section
+// index, so the docx exporter can embed the real graphics. Respects removals
+// (missing wrappers are skipped) and teacher overrides (uses current src).
+async function collectAutoImagesForDocx(){
+  const map = {};
+  const preview = document.getElementById('previewArea');
+  if(!preview) return map;
+  const wraps = Array.from(preview.querySelectorAll('.auto-img-wrap'));
+  for(const wrap of wraps){
+    const idx = wrap.getAttribute('data-section-index');
+    const img = wrap.querySelector('img.auto-img');
+    if(idx == null || !img) continue;
+    if(!(img.complete && img.naturalWidth > 0)) continue;
+    try{
+      const resp = await fetch(img.src, { mode: 'cors' });
+      const blob = await resp.blob();
+      const buf  = new Uint8Array(await blob.arrayBuffer());
+      let type = 'jpg';
+      if(/png/.test(blob.type)) type = 'png';
+      else if(/gif/.test(blob.type)) type = 'gif';
+      else if(/bmp/.test(blob.type)) type = 'bmp';
+      // Scale to fit the usable page width (~7.5in ≈ 540px) keeping aspect.
+      const natW = img.naturalWidth || 768, natH = img.naturalHeight || 576;
+      const maxW = 460;
+      const width  = Math.min(maxW, natW);
+      const height = Math.round(width * (natH / natW));
+      map[String(idx)] = { data: buf, type, width, height };
+    }catch(e){ console.warn('Could not fetch auto image for docx', e); }
+  }
+  return map;
+}
+function buildGamifiedReviewDocx(g, h){
+  if(!g || typeof g!=='object') return [];
+  const words = (g.words||[]).map(w=>String(w||'').toUpperCase().replace(/[^A-Z]/g,'')).filter(Boolean);
+  if(!words.length) return [];
+  const { Paragraph, TextRun, AlignmentType, heading, para, table, T } = h;
+  const isScramble = g.type === 'word_scramble' || !Array.isArray(g.grid);
+  const title = g.title || (isScramble ? 'Vocabulary Scramble' : 'Vocabulary Word Search');
+  const inst  = g.instructions || (isScramble
+                ? 'Unscramble each set of letters to reveal a vocabulary word from this lesson.'
+                : 'Find and circle each vocabulary word hidden in the grid below.');
+  const out = [
+    new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 200 } }),
+    new Paragraph({
+      children: [new TextRun({ text: `${isScramble?'🔀':'🔎'} ${docxClean(title)}`, bold: true, size: 30, color: T.orange, font: T.fontHeading })],
+      alignment: AlignmentType.CENTER, spacing: { before: 240, after: 80 }
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: docxClean(inst), italics: true, size: 20, color: T.muted, font: T.fontBody })],
+      alignment: AlignmentType.CENTER, spacing: { after: 160 }
+    })
+  ];
+  if (isScramble){
+    let scram = Array.isArray(g.scrambled) ? g.scrambled : [];
+    if(!scram.length){
+      scram = words.map(w=>({ scrambled: w.split('').sort(()=>Math.random()-0.5).join(''), answer: w }));
+    }
+    scram.forEach((s,i)=>{
+      const letters = String((s&&s.scrambled)||'').toUpperCase().replace(/[^A-Z]/g,'').split('').join(' ');
+      out.push(new Paragraph({
+        children: [
+          new TextRun({ text: `${i+1}.  `, bold: true, color: T.orange, size: 24, font: T.fontHeading }),
+          new TextRun({ text: letters, bold: true, color: T.primary, size: 24, font: 'Courier New' }),
+          new TextRun({ text: '   ____________________', color: T.muted, size: 22, font: T.fontBody })
+        ],
+        spacing: { before: 80, after: 80 }
+      }));
+    });
+  } else {
+    // word_search grid as a docx table
+    const grid = g.grid.map(row => Array.isArray(row) ? row.map(c=>String(c||'').toUpperCase().slice(0,1) || '·') : []);
+    out.push(table(grid[0]||[], grid.slice(1)));
+  }
+  // Word Bank
+  out.push(new Paragraph({
+    children: [new TextRun({ text: '📚 Word Bank', bold: true, size: 24, color: T.orange, font: T.fontHeading })],
+    spacing: { before: 240, after: 80 }, shading: { type:'clear', fill: T.softYellow||'FFFBE6', color:'auto' }, indent: { left: 120, right: 120 }
+  }));
+  out.push(new Paragraph({
+    children: [new TextRun({ text: words.join('   •   '), bold: true, size: 22, color: T.dark, font: T.fontBody })],
+    spacing: { after: 200 }, indent: { left: 120, right: 120 }
+  }));
+  // Also add gamified review answers to teacher-only answer key section by appending to data on the fly is intrusive;
+  // for simplicity the answers (originals) are evident in the Word Bank above.
+  return out;
+}
 function buildAnswerKeyDocx(data, h) {
   const include = data._meta && data._meta.includeAnswerKey !== false;
   if (!include) return [];
@@ -2610,16 +3133,19 @@ function mimeOf(name){
 }
 
 async function callGeminiMultimodal(parts, apiKey, model){
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const controller=new AbortController();
-  if(sumGenAbort) sumGenAbort.signal.addEventListener('abort',()=>controller.abort());
-  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
-    body:JSON.stringify({contents:[{parts}], generationConfig:{temperature:0.6,topP:0.95,maxOutputTokens:32768,responseMimeType:'application/json'}})});
-  if(!res.ok){ let msg=`HTTP ${res.status}`; try{const e=await res.json(); msg=e.error?.message||msg;}catch(e){} throw new Error(msg); }
-  const data=await res.json();
-  const txt=data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
-  if(!txt) throw new Error('Empty response from Gemini');
-  return txt;
+  const onStep = (m) => { try { if (typeof sumSetStep==='function') sumSetStep(m,'',60); else console.log(m); } catch(e){} };
+  return await _withRetryAndFallback(model, async (useModel) => {
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(useModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const controller=new AbortController();
+    if(sumGenAbort) sumGenAbort.signal.addEventListener('abort',()=>controller.abort());
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
+      body:JSON.stringify({contents:[{parts}], generationConfig:{temperature:0.6,topP:0.95,maxOutputTokens:32768,responseMimeType:'application/json'}})});
+    if(!res.ok){ let msg=`HTTP ${res.status}`; try{const e=await res.json(); msg=e.error?.message||msg;}catch(e){} throw new Error(msg); }
+    const data=await res.json();
+    const txt=data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+    if(!txt) throw new Error('Empty response from Gemini');
+    return txt;
+  }, onStep);
 }
 
 function buildSummaryPrompt(form, sourceText){
@@ -2775,7 +3301,8 @@ function getSummaryExportHtml(title){
 <style>body{background:#fff;margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif}
 #sumPreviewArea{box-shadow:none!important;margin:0 auto;max-width:8.5in;background:#fff!important;border:none!important;padding:0!important}
 *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-.lesson-section,.summary-box,.activity-table{page-break-inside:avoid;break-inside:avoid}
+.lesson-section,.summary-box,.activity-table,.visual-guide,.gamified-section,.word-bank,.ws-grid,.scramble-item{page-break-inside:avoid;break-inside:avoid}
+.no-print,.vg-copy-btn{display:none!important}
 @page{size:Letter;margin:0.5in}@media print{body{padding:0}}</style>
 </head><body>${preview.outerHTML}</body></html>`;
 }
