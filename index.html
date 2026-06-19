@@ -2825,6 +2825,10 @@ async function downloadSummaryPdf(){
 async function exportSummaryDocx(){
   if(!currentSummary) return showToast('Generate a summary first','error');
   if(!window.docx||!window.docx.Document) return showToast('docx library failed to load','error');
+  const picked = await pickDocxTheme();
+  if(!picked) return;
+  DOCX_THEME = picked;
+  showToast(`📄 Building .docx (${picked.name})…`, 'success');
   const data=currentSummary, meta=data._meta||{};
   const { Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,AlignmentType,WidthType,BorderStyle,convertInchesToTwip } = window.docx;
   const T = DOCX_THEME;
