@@ -1675,12 +1675,12 @@ function renderPreview(data) {
   const objectives = (data.learningObjectives||[]).map(o => `<li>${formatRich(o)}</li>`).join('');
   const sections = (data.mainContent||[]).map((s, sIdx) => `
     <div class="lesson-section">
-      <h2>${escapeHtml(s.sectionTitle||'Section')}</h2>
+      <h2>${formatRich(s.sectionTitle||'Section')}</h2>
       ${renderRich(s.content||'')}
       ${(data._meta && data._meta.includeVisualGuide === false) ? '' : renderVisualGuideHtml(s.visualGuide, sIdx)}
       ${s.activity ? `
         <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
-          <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${escapeHtml(s.activity.title||'Activity')}</h4>
+          <h4 style="color:var(--secondary);font-size:14px;margin-bottom:8px">📌 ${formatRich(s.activity.title||'Activity')}</h4>
           <p style="font-size:12px;margin-bottom:10px">${formatRich(s.activity.instructions||'')}</p>
           ${(s.activity.tableHeaders && s.activity.tableHeaders.length) ? `
             <table class="activity-table">
@@ -1746,8 +1746,8 @@ function renderActivitiesHtml(activities) {
   const blocks = activities.map((a, i) => {
     const body = renderActivityItemsHtml(a);
     return `<div class="lesson-section">
-      <h2>${ACT_TYPE_LABEL[a.type]||'🧩'} &nbsp;Activity ${i+1}${a.title ? ': ' + escapeHtml(a.title) : ''}</h2>
-      <p style="font-style:italic;font-size:13px;margin-bottom:10px">${escapeHtml(a.instructions||'')}</p>
+      <h2>${ACT_TYPE_LABEL[a.type]||'🧩'} &nbsp;Activity ${i+1}${a.title ? ': ' + formatRich(a.title) : ''}</h2>
+      <p style="font-style:italic;font-size:13px;margin-bottom:10px">${formatRich(a.instructions||'')}</p>
       ${body}
     </div>`;
   }).join('');
