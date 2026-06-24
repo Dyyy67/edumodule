@@ -2354,6 +2354,77 @@ const DOCX_THEMES = {
 };
 let DOCX_THEME = DOCX_THEMES.purple_pop;
 
+// ===== Explicit Stylesheet Mapper =====
+// Reads the live workspace preview's computed styles + CSS design tokens
+// and produces a theme object compatible with docx.js (hex strings, no '#').
+// Used by the "Original" design preset so the export mirrors the exact
+// structural design, hierarchy, and inline formatting from the preview —
+// bypassing every preset theme override.
+function buildStylesheetMapper(root){
+  const preview = root || document.getElementById('previewArea');
+  const hex = (c, fb) => {
+    if (!c) return fb;
+    const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (m) return [m[1],m[2],m[3]].map(n=>(+n).toString(16).padStart(2,'0')).join('').toUpperCase();
+    const h = String(c).match(/#([0-9a-f]{3,8})/i);
+    if (h){ let v=h[1]; if(v.length===3) v=v.split('').map(x=>x+x).join(''); return v.slice(0,6).toUpperCase(); }
+    return fb;
+  };
+  const fontOf = (el, fb) => {
+    if (!el) return fb;
+    const f = getComputedStyle(el).fontFamily || '';
+    const first = f.split(',')[0].replace(/['"]/g,'').trim();
+    return first || fb;
+  };
+  // Pull canonical structural samples from the preview.
+  const heading = preview && (preview.querySelector('h1,h2,.module-title,.lesson-title') || preview);
+  const body    = preview && (preview.querySelector('p, .lesson-section p, li') || preview);
+  const accentEl= preview && (preview.querySelector('.activity-table th, .summary-box, .gamified-section, .word-bank') || heading);
+  const tableEl = preview && preview.querySelector('table');
+  // Pull design tokens off :root so user-defined CSS vars win.
+  const rootCS  = getComputedStyle(document.documentElement);
+  const tok = (name, fb) => hex(rootCS.getPropertyValue(name).trim(), fb);
+
+  const primary   = hex(heading && getComputedStyle(heading).color, tok('--primary-color','1F2937'));
+  const secondary = hex(accentEl && getComputedStyle(accentEl).backgroundColor, tok('--secondary-color','4B5563'));
+  const accent    = tok('--accent-color', '9CA3AF');
+  const dark      = hex(body && getComputedStyle(body).color, '111827');
+  const softBg    = hex(preview && getComputedStyle(preview).backgroundColor, 'FFFFFF');
+
+  // Capture structural rhythm so docxBlocks/tables can mirror preview spacing.
+  const layout = {};
+  if (body){
+    const cs = getComputedStyle(body);
+    layout.paragraphAfterTwips = Math.round((parseFloat(cs.marginBottom)||8) * 20);
+    layout.lineHeight = parseFloat(cs.lineHeight) || 0;
+  }
+  if (heading){
+    const cs = getComputedStyle(heading);
+    layout.headingSizeHalfPt = Math.round((parseFloat(cs.fontSize)||16) * 2); // pt*2 = docx size
+  }
+  if (tableEl){
+    const cell = tableEl.querySelector('td,th');
+    if (cell){
+      const cs = getComputedStyle(cell);
+      layout.cellMarginTwips = Math.round((parseFloat(cs.paddingTop)||6) * 20);
+      layout.cellBorderColor = hex(cs.borderTopColor, 'CCCCCC');
+    }
+  }
+  return {
+    name: 'Original (from preview)',
+    emoji: '🪞',
+    isOriginal: true,
+    fontHeading: fontOf(heading, 'Georgia'),
+    fontBody:    fontOf(body, 'Calibri'),
+    primary, secondary, accent,
+    green:'16A34A', orange:'F59E0B',
+    dark, muted:'6B7280',
+    softBg, softPink: softBg, softYellow: softBg,
+    gradient:false,
+    layout
+  };
+}
+
 // Picker modal — shown before export so the user chooses a design every time.
 function pickDocxTheme(){
   return new Promise(resolve=>{
@@ -2361,7 +2432,17 @@ function pickDocxTheme(){
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
     const box = document.createElement('div');
     box.style.cssText = 'background:#fff;border-radius:20px;padding:24px;max-width:880px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 25px 70px rgba(0,0,0,.3)';
-    let cards = Object.entries(DOCX_THEMES).map(([key,t])=>{
+    // "Original" card always renders FIRST (option #6 in the visible grid is
+    // the 6th preset; we list Original on top so the raw-layout option is
+    // never lost in the alphabetical preset list).
+    const originalCard = `<button data-key="__original__" style="all:unset;cursor:pointer;border-radius:14px;overflow:hidden;border:2px dashed #6C63FF;transition:.2s;display:flex;flex-direction:column;background:#fff" onmouseover="this.style.borderColor='#1E1B4B';this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 24px rgba(0,0,0,.15)'" onmouseout="this.style.borderColor='#6C63FF';this.style.transform='';this.style.boxShadow=''">
+        <div style="height:70px;background:repeating-linear-gradient(135deg,#F8F9FF,#F8F9FF 8px,#EEF0FF 8px,#EEF0FF 16px);display:flex;align-items:center;justify-content:center;color:#6C63FF;font-weight:800;font-family:Georgia,serif;font-size:13px">As-Generated Layout</div>
+        <div style="padding:10px 12px">
+          <div style="font-weight:800;font-size:14px;color:#1E1B4B">🪞 Original</div>
+          <div style="font-size:11px;color:#8892A4;margin-top:6px">Bypass theme overrides — export matches the live preview's exact structure, fonts, and spacing.</div>
+        </div>
+      </button>`;
+    let cards = originalCard + Object.entries(DOCX_THEMES).map(([key,t])=>{
       const grad = `linear-gradient(135deg,#${t.primary} 0%,#${t.secondary} 55%,#${t.accent} 100%)`;
       return `<button data-key="${key}" style="all:unset;cursor:pointer;border-radius:14px;overflow:hidden;border:2px solid #eee;transition:.2s;display:flex;flex-direction:column;background:#fff" onmouseover="this.style.borderColor='#6C63FF';this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 24px rgba(0,0,0,.15)'" onmouseout="this.style.borderColor='#eee';this.style.transform='';this.style.boxShadow=''">
         <div style="height:70px;background:${grad}"></div>
@@ -2381,7 +2462,7 @@ function pickDocxTheme(){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div>
           <h2 style="font-family:'Fredoka One',sans-serif;color:#6C63FF;font-size:24px;margin:0">🎨 Pick a Design</h2>
-          <p style="color:#8892A4;font-size:13px;margin-top:4px">Choose a theme for your .docx — fonts, colors and gradient bars are all unique.</p>
+          <p style="color:#8892A4;font-size:13px;margin-top:4px">Choose a theme for your .docx — fonts, colors and gradient bars are all unique. Pick <b>Original</b> to export the raw on-screen layout with zero theme overrides.</p>
         </div>
         <button id="docxThemeCancel" style="all:unset;cursor:pointer;background:#F3F4F6;color:#374151;font-weight:700;padding:8px 16px;border-radius:10px;font-size:13px">Cancel</button>
       </div>
@@ -2389,7 +2470,13 @@ function pickDocxTheme(){
     overlay.appendChild(box); document.body.appendChild(overlay);
     box.querySelector('#docxThemeCancel').onclick=()=>{overlay.remove();resolve(null);};
     box.querySelectorAll('button[data-key]').forEach(btn=>{
-      btn.onclick=()=>{ const k=btn.getAttribute('data-key'); overlay.remove(); resolve(DOCX_THEMES[k]); };
+      btn.onclick=()=>{
+        const k=btn.getAttribute('data-key'); overlay.remove();
+        // Original track: build a theme directly from the live preview via
+        // the Explicit Stylesheet Mapper — no preset overrides applied.
+        if (k === '__original__') return resolve(buildStylesheetMapper());
+        resolve(DOCX_THEMES[k]);
+      };
     });
   });
 }
