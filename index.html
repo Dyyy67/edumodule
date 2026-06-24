@@ -108,7 +108,19 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .history-header h3{font-weight:800;font-size:15px}
 
 /* GENERATOR */
-.gen-layout{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+.gen-layout{display:flex;align-items:stretch;gap:0;height:calc(100vh - 140px);min-height:560px;width:100%;position:relative;touch-action:pan-y}
+.gen-pane{height:100%;overflow:auto;min-width:0}
+.gen-pane-left{flex:0 0 420px;padding-right:14px}
+.gen-pane-right{flex:1 1 auto;padding-left:14px;display:flex;flex-direction:column}
+.gen-pane-right .gen-panel{flex:1;display:flex;flex-direction:column;min-height:0}
+.gen-pane-right .preview-area{flex:1;overflow:auto;min-height:0}
+.gen-divider{flex:0 0 8px;align-self:stretch;cursor:col-resize;background:transparent;position:relative;border-radius:8px;transition:background .2s;touch-action:none;user-select:none}
+.gen-divider:hover,.gen-divider.dragging{background:rgba(108,99,255,.12)}
+.gen-divider::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:56px;border-radius:4px;background:#d6dbf2;transition:background .2s}
+.gen-divider:hover::before,.gen-divider.dragging::before{background:var(--primary)}
+body.gen-resizing{cursor:col-resize!important;user-select:none!important}
+body.gen-resizing *{cursor:col-resize!important;user-select:none!important}
+@media (max-width:880px){.gen-layout{flex-direction:column;height:auto}.gen-pane-left,.gen-pane-right{flex:1 1 auto;padding:0;width:100%;height:auto}.gen-divider{display:none}}
 .gen-panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
 .gen-panel-header{padding:16px 20px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #eef0f6}
 .gen-panel-header .ph-icon{font-size:20px}
@@ -155,6 +167,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .step-dot.active{background:var(--primary);animation:pulse 1.2s ease infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 
+/* INLINE EDITOR */
+[data-edit-path]{outline:none;transition:background .15s,box-shadow .15s;border-radius:4px;cursor:text}
+[data-edit-path]:hover{background:rgba(108,99,255,.06);box-shadow:inset 0 0 0 1px rgba(108,99,255,.25)}
+[data-edit-path]:focus{background:rgba(108,99,255,.10);box-shadow:inset 0 0 0 2px var(--primary)}
+.edit-row{position:relative}
+.edit-del{position:absolute;right:-4px;top:50%;transform:translateY(-50%);background:#FF6B9D;color:#fff;border:none;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:12px;font-weight:900;line-height:1;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.15);z-index:2}
+.edit-row:hover .edit-del,.edit-row:focus-within .edit-del{display:flex}
+.edit-hint{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#FFD93D,#FF9F43);color:#1E1B4B;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:800;margin-bottom:10px;box-shadow:0 2px 8px rgba(255,159,67,.3)}
+@media print{[data-edit-path]{outline:none!important;background:none!important;box-shadow:none!important}.edit-del,.edit-hint,.no-print{display:none!important}}
 /* PREVIEW */
 .preview-area{background:#f8f9ff;border-radius:var(--radius);padding:20px;min-height:500px;border:2px solid #eef0f6;position:relative}
 .module-preview{background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 16px rgba(0,0,0,.08);position:relative;font-family:'Nunito',sans-serif;min-height:400px}
@@ -400,8 +421,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 
       <!-- GENERATOR -->
       <div class="panel" id="panel-generator">
-        <div class="gen-layout">
-          <div>
+        <div class="gen-layout" id="genLayout">
+          <div class="gen-pane gen-pane-left">
             <div class="gen-panel" style="margin-bottom:16px">
               <div class="gen-panel-header"><span class="ph-icon">🔑</span> Gemini AI Settings</div>
               <div class="gen-body">
@@ -574,6 +595,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
             </button>
           </div>
 
+          <div class="gen-divider" id="genDivider" role="separator" aria-orientation="vertical" aria-label="Resize configuration and preview panes" tabindex="0"></div>
+          <div class="gen-pane gen-pane-right">
           <div class="gen-panel" style="position:relative">
             <div class="gen-panel-header"><span class="ph-icon">👀</span> Live Preview <span style="margin-left:auto;font-size:12px;color:var(--muted)">Updates after generation</span></div>
             <div style="padding:20px">
@@ -608,6 +631,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
                 <button class="btn btn-primary" id="btnGenAnother" style="width:auto;background:linear-gradient(45deg,#6BCB77,#4D96FF);color:#fff" onclick="generateAnotherModule()">✨ Generate Another Module</button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -1714,12 +1738,12 @@ function renderPreview(data) {
   const fontStyle = `font-family:${appState.fontFamily};font-size:${appState.fontSize}px;`;
   const fontOverride = buildFontOverrideStyle('modulePreviewScope', appState.fontFamily, appState.fontSize);
 
-  const vocab = (data.keyVocabulary||[]).map(v => `<tr><td style="font-weight:800;color:var(--primary)">${escapeHtml(v.word||'')}</td><td>${formatRich(v.definition||'')}</td></tr>`).join('');
-  const objectives = (data.learningObjectives||[]).map(o => `<li>${formatRich(o)}</li>`).join('');
+  const vocab = (data.keyVocabulary||[]).map((v,i) => `<tr class="edit-row"><td style="font-weight:800;color:var(--primary)" contenteditable="true" data-edit-path="keyVocabulary.${i}.word" data-edit-mode="text">${escapeHtml(v.word||'')}</td><td contenteditable="true" data-edit-path="keyVocabulary.${i}.definition" data-edit-mode="html">${formatRich(v.definition||'')}<button type="button" class="edit-del no-print" title="Delete row" data-edit-del="keyVocabulary.${i}">×</button></td></tr>`).join('');
+  const objectives = (data.learningObjectives||[]).map((o,i) => `<li class="edit-row" contenteditable="true" data-edit-path="learningObjectives.${i}" data-edit-mode="html">${formatRich(o)}<button type="button" class="edit-del no-print" title="Delete" data-edit-del="learningObjectives.${i}">×</button></li>`).join('');
   const sections = (data.mainContent||[]).map((s, sIdx) => `
     <div class="lesson-section">
-      <h2>${formatRich(s.sectionTitle||'Section')}</h2>
-      ${renderRich(s.content||'')}
+      <h2 contenteditable="true" data-edit-path="mainContent.${sIdx}.sectionTitle" data-edit-mode="html">${formatRich(s.sectionTitle||'Section')}</h2>
+      <div contenteditable="true" data-edit-path="mainContent.${sIdx}.content" data-edit-mode="html">${renderRich(s.content||'')}</div>
       ${(data._meta && data._meta.includeVisualGuide === false) ? '' : renderVisualGuideHtml(s.visualGuide, sIdx)}
       ${s.activity ? `
         <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-top:10px">
@@ -1733,8 +1757,8 @@ function renderPreview(data) {
         </div>` : ''}
     </div>
   `).join('');
-  const summary = (data.summaryPoints||[]).map(p=>`<li>${formatRich(p)}</li>`).join('');
-  const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p style="margin-bottom:8px"><strong>${i+1}.</strong> ${formatRich(q)}</p>`).join('');
+  const summary = (data.summaryPoints||[]).map((p,i)=>`<li class="edit-row" contenteditable="true" data-edit-path="summaryPoints.${i}" data-edit-mode="html">${formatRich(p)}<button type="button" class="edit-del no-print" title="Delete" data-edit-del="summaryPoints.${i}">×</button></li>`).join('');
+  const assessment = (data.assessmentQuestions||[]).map((q,i)=>`<p class="edit-row" style="margin-bottom:8px"><strong>${i+1}.</strong> <span contenteditable="true" data-edit-path="assessmentQuestions.${i}" data-edit-mode="html">${formatRich(q)}</span><button type="button" class="edit-del no-print" title="Delete" data-edit-del="assessmentQuestions.${i}">×</button></p>`).join('');
 
   // Per-section illustrations are auto-generated inline (see renderVisualGuideHtml).
   // Keep a top-level illustration only if one was explicitly supplied earlier.
@@ -1750,28 +1774,29 @@ function renderPreview(data) {
 
   document.getElementById('previewArea').innerHTML = `
     ${fontOverride}
+    <div class="edit-hint no-print">✏️ Click any text to edit it inline — changes save automatically. Hover items to reveal delete buttons.</div>
     <div id="modulePreviewScope" class="module-preview" style="${borderStyle}${fontStyle}">
 
       <div class="cover-page" style="background:linear-gradient(135deg,#fff7ff,#f0f4ff)">
-        <div class="cover-school">${escapeHtml(meta.school)}</div>
+        <div class="cover-school" contenteditable="true" data-edit-path="_meta.school" data-edit-mode="text">${escapeHtml(meta.school)}</div>
         <div class="cover-img">📚</div>
-        <div class="cover-title">${escapeHtml(meta.title)}</div>
+        <div class="cover-title" contenteditable="true" data-edit-path="_meta.title" data-edit-mode="text">${escapeHtml(meta.title)}</div>
         <div class="cover-subject">${escapeHtml(meta.subject)} | Grade ${escapeHtml(meta.grade)}</div>
         <div class="cover-details">
-          <div class="cover-detail"><div class="cd-label">Teacher</div><div class="cd-val">${escapeHtml(meta.teacher)}</div></div>
-          <div class="cover-detail"><div class="cd-label">Quarter/Week</div><div class="cd-val">${escapeHtml(meta.quarter)}</div></div>
-          <div class="cover-detail"><div class="cd-label">School Year</div><div class="cd-val">${escapeHtml(meta.year)}</div></div>
-          <div class="cover-detail"><div class="cd-label">Section</div><div class="cd-val">${escapeHtml(meta.section||'—')}</div></div>
+          <div class="cover-detail"><div class="cd-label">Teacher</div><div class="cd-val" contenteditable="true" data-edit-path="_meta.teacher" data-edit-mode="text">${escapeHtml(meta.teacher)}</div></div>
+          <div class="cover-detail"><div class="cd-label">Quarter/Week</div><div class="cd-val" contenteditable="true" data-edit-path="_meta.quarter" data-edit-mode="text">${escapeHtml(meta.quarter)}</div></div>
+          <div class="cover-detail"><div class="cd-label">School Year</div><div class="cd-val" contenteditable="true" data-edit-path="_meta.year" data-edit-mode="text">${escapeHtml(meta.year)}</div></div>
+          <div class="cover-detail"><div class="cd-label">Section</div><div class="cd-val" contenteditable="true" data-edit-path="_meta.section" data-edit-mode="text">${escapeHtml(meta.section||'—')}</div></div>
         </div>
       </div>
       <hr style="border:none;border-top:3px dashed #eef0f6;margin:24px 0">
       <div class="lesson-section"><h2>🎯 Learning Objectives</h2><ul style="padding-left:20px;font-size:13px;line-height:2">${objectives}</ul></div>
       <div style="background:linear-gradient(135deg,#fff0f5,#fff7e6);border-radius:12px;padding:16px;margin:16px 0">
         <h3 style="font-family:'Fredoka One',sans-serif;color:var(--secondary);font-size:16px;margin-bottom:8px">🌟 Let's Get Started!</h3>
-        <p style="font-size:13px">${formatRich(data.motivationActivity||'')}</p>
+        <p style="font-size:13px" contenteditable="true" data-edit-path="motivationActivity" data-edit-mode="html">${formatRich(data.motivationActivity||'')}</p>
       </div>
       ${vocab ? `<div class="lesson-section"><h2>📖 Key Vocabulary</h2><table class="activity-table"><tr><th>Word</th><th>Meaning</th></tr>${vocab}</table></div>` : ''}
-      <div class="lesson-section"><h2>📝 Introduction</h2><p>${formatRich(data.lessonIntro||'')}</p></div>
+      <div class="lesson-section"><h2>📝 Introduction</h2><p contenteditable="true" data-edit-path="lessonIntro" data-edit-mode="html">${formatRich(data.lessonIntro||'')}</p></div>
       ${sections}
       ${imgBlock}
       ${renderActivitiesHtml(data.activities||[])}
@@ -1782,7 +1807,98 @@ function renderPreview(data) {
     </div>`;
   // Bind drag/drop + paste override handlers to the freshly rendered auto images.
   if (typeof attachAutoImageHandlers === 'function') attachAutoImageHandlers();
+  // Bind inline WYSIWYG editor handlers.
+  if (typeof attachInlineEditor === 'function') attachInlineEditor();
 }
+
+// =================== INLINE WYSIWYG EDITOR ===================
+function _setByPath(obj, path, value){
+  const parts = String(path).split('.');
+  let cur = obj;
+  for (let i=0;i<parts.length-1;i++){
+    const k = parts[i];
+    const ni = parts[i+1];
+    if (cur[k] == null) cur[k] = /^\d+$/.test(ni) ? [] : {};
+    cur = cur[k];
+  }
+  cur[parts[parts.length-1]] = value;
+}
+function _delByPath(obj, path){
+  const parts = String(path).split('.');
+  let cur = obj;
+  for (let i=0;i<parts.length-1;i++){
+    cur = cur[parts[i]];
+    if (cur == null) return;
+  }
+  const last = parts[parts.length-1];
+  if (Array.isArray(cur) && /^\d+$/.test(last)) cur.splice(parseInt(last,10),1);
+  else delete cur[last];
+}
+// Convert edited HTML back to a string the renderer can re-format.
+// We keep <strong>/<b> as **bold** and <em>/<i> as *italic*, strip the rest.
+function _htmlToRich(html){
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  tmp.querySelectorAll('.edit-del').forEach(n=>n.remove());
+  function walk(node){
+    if (node.nodeType === 3) return node.nodeValue;
+    if (node.nodeType !== 1) return '';
+    const tag = node.tagName.toLowerCase();
+    const inner = Array.from(node.childNodes).map(walk).join('');
+    if (tag==='strong'||tag==='b') return '**'+inner+'**';
+    if (tag==='em'||tag==='i') return '*'+inner+'*';
+    if (tag==='br') return '\n';
+    if (tag==='p'||tag==='div') return inner+'\n';
+    if (tag==='li') return '• '+inner+'\n';
+    return inner;
+  }
+  return walk(tmp).replace(/\n{3,}/g,'\n\n').trim();
+}
+function _readNode(el){
+  const mode = el.getAttribute('data-edit-mode')||'text';
+  // Clone to strip out delete buttons before reading
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll('.edit-del').forEach(n=>n.remove());
+  if (mode==='text') return (clone.textContent||'').trim();
+  return _htmlToRich(clone.innerHTML);
+}
+let _editorBound = false;
+function attachInlineEditor(){
+  if (!currentModuleJSON) return;
+  const area = document.getElementById('previewArea');
+  if (!area) return;
+  if (_editorBound) return;
+  _editorBound = true;
+  // Block Enter from creating <div> wrappers in single-line fields.
+  area.addEventListener('keydown', function(e){
+    const t = e.target;
+    if (!(t && t.matches && t.matches('[data-edit-path]'))) return;
+    if (e.key==='Enter' && t.getAttribute('data-edit-mode')==='text'){
+      e.preventDefault();
+      t.blur();
+    }
+  });
+  // Commit on blur — final write to currentModuleJSON.
+  area.addEventListener('blur', function(e){
+    const t = e.target;
+    if (!(t && t.matches && t.matches('[data-edit-path]'))) return;
+    const path = t.getAttribute('data-edit-path');
+    if (!path || !currentModuleJSON) return;
+    _setByPath(currentModuleJSON, path, _readNode(t));
+  }, true);
+  // Delete-row buttons.
+  area.addEventListener('click', function(e){
+    const btn = e.target.closest && e.target.closest('[data-edit-del]');
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const path = btn.getAttribute('data-edit-del');
+    _delByPath(currentModuleJSON, path);
+    renderPreview(currentModuleJSON);
+  });
+}
+// Reset binding flag whenever the preview is re-rendered from scratch.
+const _origRenderPreview = renderPreview;
+renderPreview = function(d){ _editorBound = false; return _origRenderPreview(d); };
 
 function renderActivitiesHtml(activities) {
   if (!activities || !activities.length) return '';
@@ -2574,7 +2690,8 @@ function getPreviewExportHtml(title){
   @page{size:Letter;margin:0.5in}
   @media print{body{padding:0}}
 </style>
-</head><body>${preview.outerHTML}</body></html>`;
+</head><body>${preview.outerHTML}
+</body></html>`;
 }
 
 function exportHtml(){
@@ -3592,6 +3709,31 @@ window.addEventListener('load', () => {
     }
   }
 });
+</script>
+<script>
+(function(){
+  function init(){
+    var layout=document.getElementById('genLayout');
+    var divider=document.getElementById('genDivider');
+    if(!layout||!divider||divider.dataset.bound)return;
+    divider.dataset.bound='1';
+    var left=layout.querySelector('.gen-pane-left');
+    var KEY='eduGenSplitPx';
+    var saved=parseFloat(localStorage.getItem(KEY));
+    if(!isNaN(saved)&&saved>240)left.style.flexBasis=saved+'px';
+    var dragging=false,startX=0,startW=0;
+    function clamp(w){var max=layout.getBoundingClientRect().width-260;return Math.max(280,Math.min(max,w));}
+    function move(e){if(!dragging)return;var x=e.touches?e.touches[0].clientX:e.clientX;left.style.flexBasis=clamp(startW+(x-startX))+'px';e.preventDefault();}
+    function up(){if(!dragging)return;dragging=false;divider.classList.remove('dragging');document.body.classList.remove('gen-resizing');var px=parseFloat(left.style.flexBasis);if(!isNaN(px))localStorage.setItem(KEY,px);window.removeEventListener('mousemove',move);window.removeEventListener('mouseup',up);window.removeEventListener('touchmove',move);window.removeEventListener('touchend',up);}
+    function down(e){dragging=true;var x=e.touches?e.touches[0].clientX:e.clientX;startX=x;startW=left.getBoundingClientRect().width;divider.classList.add('dragging');document.body.classList.add('gen-resizing');window.addEventListener('mousemove',move,{passive:false});window.addEventListener('mouseup',up);window.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);e.preventDefault();}
+    divider.addEventListener('mousedown',down);
+    divider.addEventListener('touchstart',down,{passive:false});
+    divider.addEventListener('keydown',function(e){var w=left.getBoundingClientRect().width;if(e.key==='ArrowLeft')left.style.flexBasis=clamp(w-24)+'px';else if(e.key==='ArrowRight')left.style.flexBasis=clamp(w+24)+'px';else return;localStorage.setItem(KEY,parseFloat(left.style.flexBasis));e.preventDefault();});
+    divider.addEventListener('dblclick',function(){left.style.flexBasis='420px';localStorage.removeItem(KEY);});
+    if('ResizeObserver' in window){new ResizeObserver(function(){var w=left.getBoundingClientRect().width;var c=clamp(w);if(Math.abs(c-w)>1)left.style.flexBasis=c+'px';}).observe(layout);}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
 </script>
 </body>
 </html>
