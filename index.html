@@ -114,6 +114,12 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .gen-pane-right{flex:1 1 auto;padding-left:14px;display:flex;flex-direction:column}
 .gen-pane-right .gen-panel{flex:1;display:flex;flex-direction:column;min-height:0}
 .gen-pane-right .preview-area{flex:1;overflow:auto;min-height:0}
+/* SCROLL FIX: the right panel wraps its body in a non-flex <div style="padding:20px">,
+   so flex:1 + overflow:auto on .preview-area never gets a constrained height and the
+   outer .gen-panel (overflow:hidden) clips everything. Let the panel itself scroll. */
+.gen-pane-right .gen-panel{overflow:auto}
+.gen-pane-right .gen-panel > div[style*="padding:20px"]{min-height:0}
+.gen-pane-right .preview-area{overflow:visible;flex:0 1 auto}
 .gen-divider{flex:0 0 8px;align-self:stretch;cursor:col-resize;background:transparent;position:relative;border-radius:8px;transition:background .2s;touch-action:none;user-select:none}
 .gen-divider:hover,.gen-divider.dragging{background:rgba(108,99,255,.12)}
 .gen-divider::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:56px;border-radius:4px;background:#d6dbf2;transition:background .2s}
@@ -1886,6 +1892,25 @@ function attachInlineEditor(){
     if (!path || !currentModuleJSON) return;
     _setByPath(currentModuleJSON, path, _readNode(t));
   }, true);
+  // LIVE STATE SYNC: every keystroke commits straight into currentModuleJSON so
+  // exports always reflect on-screen edits, even without blurring the field.
+  area.addEventListener('input', function(e){
+    const t = e.target;
+    if (!(t && t.matches && t.matches('[data-edit-path]'))) return;
+    const path = t.getAttribute('data-edit-path');
+    if (!path || !currentModuleJSON) return;
+    _setByPath(currentModuleJSON, path, _readNode(t));
+    if (appState && appState.lastModuleData) {
+      appState.lastModuleData.json = currentModuleJSON;
+    }
+  }, true);
+  // Make every editable region click-to-edit and keyboard-focusable, so the
+  // preview behaves as a true Interactive State-Synced Canvas.
+  area.querySelectorAll('[data-edit-path]').forEach(function(el){
+    if (!el.hasAttribute('contenteditable')) el.setAttribute('contenteditable','true');
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex','0');
+    el.setAttribute('spellcheck','true');
+  });
   // Delete-row buttons.
   area.addEventListener('click', function(e){
     const btn = e.target.closest && e.target.closest('[data-edit-del]');
